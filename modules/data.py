@@ -7,7 +7,7 @@ class Data():
 	'''
 	This class loads the dataset, generates batches, and provides other useful functions.
 	'''
-	def __init__(self, dataset_name='awa1', split='', dataroot='./data'):
+	def __init__(self, dataset_name='awa1', dataroot='./data'):
 		'''
 		Load the dataset.
 		'''
@@ -16,7 +16,7 @@ class Data():
 		feature = matcontent['features'].T
 		label = matcontent['labels'].astype(int).squeeze() - 1
 		# read attributes and locations data
-		matcontent = sio.loadmat(dataroot + "/" + dataset_name + "/att_splits" + split + ".mat")
+		matcontent = sio.loadmat(dataroot + "/" + dataset_name + "/att_splits.mat")
 		self.attributes = torch.from_numpy(matcontent['att'].T).float()
 		# normalize, just in case (the datasets used here are already normalized)
 		self.attributes /= self.attributes.pow(2).sum(1).sqrt().unsqueeze(1).expand(self.attributes.size(0), self.attributes.size(1))

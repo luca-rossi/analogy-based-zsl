@@ -4,12 +4,11 @@ import torch.backends.cudnn as cudnn
 from args import args
 from modules.data import Data
 from modules.trainer_tfvaegan import TrainerTfvaegan
-from similar_sample_finder import SimilarSampleFinder
+from modules.similar_sample_finder import SimilarSampleFinder
 
 # init seed and cuda
 if args.seed is None:
 	args.seed = random.randint(1, 10000)
-print('Split:', ('none' if args.split == '' else args.split))
 print('Random Seed:', args.seed)
 random.seed(args.seed)
 torch.manual_seed(args.seed)
@@ -18,7 +17,7 @@ if device.type == 'cuda':
 	torch.cuda.manual_seed_all(args.seed)
 cudnn.benchmark = True
 # load data
-data = Data(dataset_name=args.dataset, split=args.split, dataroot=args.dataroot)
+data = Data(dataset_name=args.dataset, dataroot=args.dataroot)
 # define similar sample finder
 similar_sample_finder = SimilarSampleFinder(data)
 # train the TF-VAEGAN
