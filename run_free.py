@@ -1,11 +1,13 @@
 import random
 import torch
 import torch.backends.cudnn as cudnn
-from args import args
+from args import parse_args
 from modules.data import Data
 from modules.trainer_free import TrainerFree
 from modules.similar_sample_finder import SimilarSampleFinder
 
+# parse arguments
+args = parse_args('FREE')
 # init seed and cuda
 if args.seed is None:
 	args.seed = random.randint(1, 10000)
