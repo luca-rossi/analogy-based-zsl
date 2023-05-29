@@ -319,6 +319,7 @@ def parse_args(model='CLSWGAN'):
 	parser.add_argument('--dataset', '-d', default='AWA2', help='dataset name (folder containing the res101.mat and att_splits.mat files)')
 	parser.add_argument('--dataroot', '-p', default='./data', help='path to dataset')
 	parser.add_argument('--split', '-s', default='', help='name of the split (e.g. \'_gcs\', \'_mas\', etc.)')
+	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
 	parser.add_argument('--n_similar_classes', type=int, default=1, help='how many similar classes to use for conditional generation')
 	parser.add_argument('--cond_size', type=int, default=64, help='size of one sample in the conditioning vector')
 	parser.add_argument('--use_concat', action='store_true', default=False, help='use concatenation when conditioning on similar classes (vs. averaging)')
@@ -326,7 +327,7 @@ def parse_args(model='CLSWGAN'):
 	parser.add_argument('--pool_type', default='concat', help='how to pool the similar classes for conditioning (mean, max, or first)')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
-	args.dataset = 'AWA2' if args.dataset == 'AWA' else args.dataset
+	args.dataset = 'AWA2' if args.dataset.upper() == 'AWA' else args.dataset.upper()
 	# Create the second parser to get the model parameters
 	subparser = argparse.ArgumentParser(add_help=True, parents=[parser])
 	# Add model- and dataset-specific parameters
@@ -334,7 +335,7 @@ def parse_args(model='CLSWGAN'):
 		subparser.add_argument('--' + param, type=type(value), default=value, help=help_params[param])
 	# Parse the new arguments
 	args, _ = subparser.parse_known_args(namespace=args)
-	args.dataset = 'AWA2' if args.dataset == 'AWA' else args.dataset
+	args.dataset = 'AWA2' if args.dataset.upper() == 'AWA' else args.dataset.upper()
 	# Print the arguments
 	print('Arguments:')
 	for param, value in vars(args).items():

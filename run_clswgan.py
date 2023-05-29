@@ -38,6 +38,6 @@ clswgan = TrainerClswgan(data, args.dataset, pre_classifier, similar_sample_find
 						hidden_size=args.hidden_size, n_epochs=args.n_epochs, n_classes=data.get_n_classes(),
 						n_critic_iters=args.n_critic_iters, lr=args.lr, lr_cls=args.lr_cls, beta1=args.beta1,
 						weight_gp=args.weight_gp, weight_precls=args.weight_precls,
-						n_similar_classes=args.n_similar_classes, cond_size=args.cond_size,
-						agg_type=args.agg_type, pool_type=args.pool_type, device=device)
+						n_similar_classes=args.n_similar_classes, cond_size=args.cond_size, agg_type=args.agg_type, pool_type=args.pool_type,
+						save_every=args.save_every, device=device)
 clswgan.fit()

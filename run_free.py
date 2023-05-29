@@ -34,6 +34,6 @@ free = TrainerFree(data, args.dataset, similar_sample_finder, n_features=args.n_
 				weight_gp=args.weight_gp, weight_critic=args.weight_critic, weight_generator=args.weight_generator,
 				center_margin=args.center_margin, weight_margin=args.weight_margin, weight_center=args.weight_center,
 				weight_recons=args.weight_recons, min_margin=min_margin,
-				n_similar_classes=args.n_similar_classes, cond_size=args.cond_size,
-				agg_type=args.agg_type, pool_type=args.pool_type, device=device)
+				n_similar_classes=args.n_similar_classes, cond_size=args.cond_size, agg_type=args.agg_type, pool_type=args.pool_type,
+				save_every=args.save_every, device=device)
 free.fit()

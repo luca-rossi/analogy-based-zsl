@@ -31,6 +31,6 @@ tfvaegan = TrainerTfvaegan(data, args.dataset, similar_sample_finder, n_features
 						beta1=args.beta1, freeze_dec=args.freeze_dec,
 						weight_gp=args.weight_gp, weight_critic=args.weight_critic, weight_generator=args.weight_generator,
 						weight_feed_train=args.weight_feed_train, weight_feed_eval=args.weight_feed_eval, weight_recons=args.weight_recons,
-						n_similar_classes=args.n_similar_classes, cond_size=args.cond_size,
-						agg_type=args.agg_type, pool_type=args.pool_type, device=device)
+						n_similar_classes=args.n_similar_classes, cond_size=args.cond_size, agg_type=args.agg_type, pool_type=args.pool_type,
+						save_every=args.save_every, device=device)
 tfvaegan.fit()
