@@ -85,7 +85,7 @@ class TrainerClswgan():
 		'''
 		start_epoch = 0
 		try:
-			checkpoints = [f for f in os.listdir('checkpoints') if f.startswith(f'CLSWGAN_{self.dataset_name}')]
+			checkpoints = [f for f in os.listdir("./checkpoints" | ".ipynb_checkpoints") if f.startswith(f'CLSWGAN_{self.dataset_name}')]
 			if len(checkpoints) > 0:
 				print('Loading checkpoint...')
 				checkpoint = torch.load(f'checkpoints/{checkpoints[0]}')
@@ -101,8 +101,9 @@ class TrainerClswgan():
 				torch.set_rng_state(checkpoint['random_state'])
 				print('Checkpoint loaded.')
 			return start_epoch
-		except:
+		except FileNotFoundError:
 			print("No checkpoint -> skipping")
+			return start_epoch
 
 	def __save_checkpoint(self, epoch):
 		'''
