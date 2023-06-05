@@ -85,7 +85,7 @@ class TrainerClswgan():
 		'''
 		start_epoch = 0
 		try:
-			checkpoints = [f for f in os.listdir("./checkpoints" | ".ipynb_checkpoints") if f.startswith(f'CLSWGAN_{self.dataset_name}')]
+			checkpoints = [f for f in os.listdir("./checkpoints" or ".ipynb_checkpoints") if f.startswith(f'CLSWGAN_{self.dataset_name}')]
 			if len(checkpoints) > 0:
 				print('Loading checkpoint...')
 				checkpoint = torch.load(f'checkpoints/{checkpoints[0]}')
