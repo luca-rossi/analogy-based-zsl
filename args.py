@@ -324,7 +324,7 @@ def parse_args(model='CLSWGAN'):
 	parser.add_argument('--cond_size', type=int, default=64, help='size of one sample in the conditioning vector')
 	parser.add_argument('--use_concat', action='store_true', default=False, help='use concatenation when conditioning on similar classes (vs. averaging)')
 	parser.add_argument('--agg_type', default='concat', help='how to aggregate the similar classes for conditioning (concat or mean)')
-	parser.add_argument('--pool_type', default='concat', help='how to pool the similar classes for conditioning (mean, max, or first)')
+	parser.add_argument('--pool_type', default='mean', help='how to pool the similar classes for conditioning (mean, max, or first)')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
 	args.dataset = 'AWA2' if args.dataset.upper() == 'AWA' else args.dataset.upper()
