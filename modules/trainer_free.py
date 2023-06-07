@@ -80,12 +80,12 @@ class TrainerFree(Trainer):
 		self.best_gzsl_acc_unseen = 0
 		self.best_gzsl_acc_H = 0
 		self.best_zsl_acc = 0
-		start_epoch = __load_checkpoint()
+		start_epoch = self.__load_checkpoint()
 		for epoch in range(start_epoch, self.n_epochs):
 			self.__train_epoch(epoch)
 			self.__eval_epoch()
 			if self.save_every > 0 and epoch > 0 and (epoch + 1) % self.save_every == 0:
-				__save_checkpoint(self,epoch)
+				self.__save_checkpoint(self,epoch)
 		print('Dataset', self.dataset_name)
 		print('The best ZSL unseen accuracy is %.4f' % self.best_zsl_acc.item())
 		print('The best GZSL seen accuracy is %.4f' % self.best_gzsl_acc_seen.item())
