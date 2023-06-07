@@ -17,7 +17,7 @@ defaults = {
 			'lr': 0.00001,
 			'lr_cls': 0.001,
 			'beta1': 0.5,
-			'batch_size': 64,
+			'batch_size': 32,
 			'weight_gp': 10,
 			'weight_precls': 0.01
 		},
