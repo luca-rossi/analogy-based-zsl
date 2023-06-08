@@ -1,10 +1,9 @@
-import torch
+import os, torch
 from modules.losses import LossMarginCenter, loss_grad_penalty_fn, loss_vae_fn, loss_reconstruction_fn
 from modules.models import Encoder, Generator, Critic, FRDecoder
 from modules.trainer_classifier import TrainerClassifier
-from modules.trainer import *
 
-class TrainerFree(Trainer):
+class TrainerFree():
 	'''
 	This class implements the training and evaluation of the FREE model.
 	'''

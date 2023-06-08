@@ -1,10 +1,9 @@
-import torch
+import os, torch
 from modules.losses import loss_grad_penalty_fn, loss_vae_fn, loss_reconstruction_fn
 from modules.models import Encoder, Generator, Critic, Feedback, Decoder
 from modules.trainer_classifier import TrainerClassifier
-from modules.trainer import *
 
-class TrainerTfvaegan(Trainer):
+class TrainerTfvaegan():
 	'''
 	This class implements the training and evaluation of the TFVAEGAN model.
 	'''
@@ -71,6 +70,26 @@ class TrainerTfvaegan(Trainer):
 		self.one = torch.tensor(1, dtype=torch.float).to(device)
 		self.mone = self.one * -1
 
+	def fit(self):
+		'''
+		Train the model. Both ZSL and GZSL performance are evaluated at each epoch.
+		'''
+		self.best_gzsl_acc_seen = 0
+		self.best_gzsl_acc_unseen = 0
+		self.best_gzsl_acc_H = 0
+		self.best_zsl_acc = 0
+		start_epoch = self.__load_checkpoint()
+		for epoch in range(start_epoch, self.n_epochs):
+			self.__train_epoch(epoch)
+			self.__eval_epoch()
+			if self.save_every > 0 and epoch > 0 and (epoch + 1) % self.save_every == 0:
+				self.__save_checkpoint(epoch)
+		print('Dataset', self.dataset_name)
+		print('The best ZSL unseen accuracy is %.4f' % self.best_zsl_acc.item())
+		print('The best GZSL seen accuracy is %.4f' % self.best_gzsl_acc_seen.item())
+		print('The best GZSL unseen accuracy is %.4f' % self.best_gzsl_acc_unseen.item())
+		print('The best GZSL H is %.4f' % self.best_gzsl_acc_H.item())
+	
 	def __load_checkpoint(self):
 		'''
 		Load a checkpoint if it exists.

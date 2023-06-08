@@ -1,10 +1,9 @@
-import torch
+import os, torch
 from modules.losses import loss_grad_penalty_fn
 from modules.models import Generator, Critic
 from modules.trainer_classifier import TrainerClassifier
-from modules.trainer import *
 
-class TrainerClswgan(Trainer):
+class TrainerClswgan():
 	'''
 	This class implements the training and evaluation of the CLSWGAN model.
 	'''
