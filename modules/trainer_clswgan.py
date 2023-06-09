@@ -1,5 +1,4 @@
-import os
-import torch
+import os, torch
 from modules.losses import loss_grad_penalty_fn
 from modules.models import Generator, Critic
 from modules.trainer_classifier import TrainerClassifier
@@ -58,7 +57,7 @@ class TrainerClswgan():
 		self.batch_noise = torch.FloatTensor(batch_size, latent_size).to(device)
 		self.one = torch.tensor(1, dtype=torch.float).to(device)
 		self.mone = self.one * -1
-
+	
 	def fit(self):
 		'''
 		Train the model. Both ZSL and GZSL performance are evaluated at each epoch.
@@ -78,28 +77,32 @@ class TrainerClswgan():
 		print('The best GZSL seen accuracy is %.4f' % self.best_gzsl_acc_seen.item())
 		print('The best GZSL unseen accuracy is %.4f' % self.best_gzsl_acc_unseen.item())
 		print('The best GZSL H is %.4f' % self.best_gzsl_acc_H.item())
-
+	
 	def __load_checkpoint(self):
 		'''
 		Load a checkpoint if it exists.
 		'''
 		start_epoch = 0
-		checkpoints = [f for f in os.listdir('checkpoints') if f.startswith(f'CLSWGAN_{self.dataset_name}')]
-		if len(checkpoints) > 0:
-			print('Loading checkpoint...')
-			checkpoint = torch.load(f'checkpoints/{checkpoints[0]}')
-			start_epoch = checkpoint['epoch'] + 1
-			self.model_generator.load_state_dict(checkpoint['model_generator'])
-			self.model_critic.load_state_dict(checkpoint['model_critic'])
-			self.opt_generator.load_state_dict(checkpoint['opt_generator'])
-			self.opt_critic.load_state_dict(checkpoint['opt_critic'])
-			self.best_gzsl_acc_seen = checkpoint['best_gzsl_acc_seen']
-			self.best_gzsl_acc_unseen = checkpoint['best_gzsl_acc_unseen']
-			self.best_gzsl_acc_H = checkpoint['best_gzsl_acc_H']
-			self.best_zsl_acc = checkpoint['best_zsl_acc']
-			torch.set_rng_state(checkpoint['random_state'])
-			print('Checkpoint loaded.')
-		return start_epoch
+		try:
+			checkpoints = [f for f in os.listdir("./checkpoints" or ".ipynb_checkpoints") if f.startswith(f'CLSWGAN_{self.dataset_name}')]
+			if len(checkpoints) > 0:
+				print('Loading checkpoint...')
+				checkpoint = torch.load(f'checkpoints/{checkpoints[0]}')
+				start_epoch = checkpoint['epoch'] + 1
+				self.model_generator.load_state_dict(checkpoint['model_generator'])
+				self.model_critic.load_state_dict(checkpoint['model_critic'])
+				self.opt_generator.load_state_dict(checkpoint['opt_generator'])
+				self.opt_critic.load_state_dict(checkpoint['opt_critic'])
+				self.best_gzsl_acc_seen = checkpoint['best_gzsl_acc_seen']
+				self.best_gzsl_acc_unseen = checkpoint['best_gzsl_acc_unseen']
+				self.best_gzsl_acc_H = checkpoint['best_gzsl_acc_H']
+				self.best_zsl_acc = checkpoint['best_zsl_acc']
+				torch.set_rng_state(checkpoint['random_state'])
+				print('Checkpoint loaded.')
+			return start_epoch
+		except FileNotFoundError:
+			print("No checkpoint -> skipping")
+			return start_epoch
 
 	def __save_checkpoint(self, epoch):
 		'''
@@ -120,7 +123,7 @@ class TrainerClswgan():
 		}
 		torch.save(checkpoint, f'checkpoints/CLSWGAN_{self.dataset_name}.pt')
 		print('Checkpoint saved.')
-		
+	
 	def __train_epoch(self, epoch):
 		'''
 		Train the models for one epoch: train the critic for n_critic_iters steps, then train the generator for one step.

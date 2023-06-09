@@ -1,5 +1,4 @@
-import os
-import torch
+import os, torch
 from modules.losses import LossMarginCenter, loss_grad_penalty_fn, loss_vae_fn, loss_reconstruction_fn
 from modules.models import Encoder, Generator, Critic, FRDecoder
 from modules.trainer_classifier import TrainerClassifier
@@ -85,7 +84,7 @@ class TrainerFree():
 			self.__train_epoch(epoch)
 			self.__eval_epoch()
 			if self.save_every > 0 and epoch > 0 and (epoch + 1) % self.save_every == 0:
-				self.__save_checkpoint(epoch)
+				self.__save_checkpoint(self,epoch)
 		print('Dataset', self.dataset_name)
 		print('The best ZSL unseen accuracy is %.4f' % self.best_zsl_acc.item())
 		print('The best GZSL seen accuracy is %.4f' % self.best_gzsl_acc_seen.item())
@@ -97,28 +96,26 @@ class TrainerFree():
 		Load a checkpoint if it exists.
 		'''
 		start_epoch = 0
-		checkpoints = [f for f in os.listdir('checkpoints') if f.startswith(f'FREE_{self.dataset_name}')]
-		if len(checkpoints) > 0:
-			print('Loading checkpoint...')
-			checkpoint = torch.load(f'checkpoints/{checkpoints[0]}')
-			start_epoch = checkpoint['epoch'] + 1
-			self.model_encoder.load_state_dict(checkpoint['model_encoder'])
-			self.model_generator.load_state_dict(checkpoint['model_generator'])
-			self.model_critic.load_state_dict(checkpoint['model_critic'])
-			self.model_decoder.load_state_dict(checkpoint['model_decoder'])
-			self.center_criterion.load_state_dict(checkpoint['model_center'])
-			self.opt_encoder.load_state_dict(checkpoint['opt_encoder'])
-			self.opt_generator.load_state_dict(checkpoint['opt_generator'])
-			self.opt_critic.load_state_dict(checkpoint['opt_critic'])
-			self.opt_decoder.load_state_dict(checkpoint['opt_decoder'])
-			self.opt_center.load_state_dict(checkpoint['opt_center'])
-			self.best_gzsl_acc_seen = checkpoint['best_gzsl_acc_seen']
-			self.best_gzsl_acc_unseen = checkpoint['best_gzsl_acc_unseen']
-			self.best_gzsl_acc_H = checkpoint['best_gzsl_acc_H']
-			self.best_zsl_acc = checkpoint['best_zsl_acc']
-			torch.set_rng_state(checkpoint['random_state'])
-			print('Checkpoint loaded.')
-		return start_epoch
+		try:
+			checkpoints = [f for f in os.listdir("./checkpoints" or ".ipynb_checkpoints") if f.startswith(f'CLSWGAN_{self.dataset_name}')]
+			if len(checkpoints) > 0:
+				print('Loading checkpoint...')
+				checkpoint = torch.load(f'checkpoints/{checkpoints[0]}')
+				start_epoch = checkpoint['epoch'] + 1
+				self.model_generator.load_state_dict(checkpoint['model_generator'])
+				self.model_critic.load_state_dict(checkpoint['model_critic'])
+				self.opt_generator.load_state_dict(checkpoint['opt_generator'])
+				self.opt_critic.load_state_dict(checkpoint['opt_critic'])
+				self.best_gzsl_acc_seen = checkpoint['best_gzsl_acc_seen']
+				self.best_gzsl_acc_unseen = checkpoint['best_gzsl_acc_unseen']
+				self.best_gzsl_acc_H = checkpoint['best_gzsl_acc_H']
+				self.best_zsl_acc = checkpoint['best_zsl_acc']
+				torch.set_rng_state(checkpoint['random_state'])
+				print('Checkpoint loaded.')
+			return start_epoch
+		except FileNotFoundError:
+			print("No checkpoint -> skipping")
+			return start_epoch
 
 	def __save_checkpoint(self, epoch):
 		'''
@@ -127,25 +124,19 @@ class TrainerFree():
 		print('Saving checkpoint...')
 		checkpoint = {
 			'epoch': epoch,
-			'model_encoder': self.model_encoder.state_dict(),
 			'model_generator': self.model_generator.state_dict(),
 			'model_critic': self.model_critic.state_dict(),
-			'model_decoder': self.model_decoder.state_dict(),
-			'model_center': self.center_criterion.state_dict(),
-			'opt_encoder': self.opt_encoder.state_dict(),
 			'opt_generator': self.opt_generator.state_dict(),
 			'opt_critic': self.opt_critic.state_dict(),
-			'opt_decoder': self.opt_decoder.state_dict(),
-			'opt_center': self.opt_center.state_dict(),
 			'best_gzsl_acc_seen': self.best_gzsl_acc_seen,
 			'best_gzsl_acc_unseen': self.best_gzsl_acc_unseen,
 			'best_gzsl_acc_H': self.best_gzsl_acc_H,
 			'best_zsl_acc': self.best_zsl_acc,
 			'random_state': torch.get_rng_state(),
 		}
-		torch.save(checkpoint, f'checkpoints/FREE_{self.dataset_name}.pt')
+		torch.save(checkpoint, f'checkpoints/CLSWGAN_{self.dataset_name}.pt')
 		print('Checkpoint saved.')
-
+		
 	def __train_epoch(self, epoch):
 		'''
 		Train the models for one epoch. Each epoch consists of n_loops feedback loops.
