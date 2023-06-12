@@ -47,7 +47,7 @@ class SimilarSampleFinder:
 		self.similarities = similarities
 		print(similarities)
 
-	def get_sample(self, label, n_features, cond_size, k=2, agg_type='concat', pool_type='mean'):
+	def get_sample(self, label, n_features, cond_size, k=1, agg_type='concat', pool_type='mean'):
 		'''
 		Given a label, a number of similar classes to use (default 1), and the type of aggregation (concat or mean) and pooling (mean, max, or first),
 		returns a feature vector from the most similar seen class or a fused feature vector from the most similar seen classes.
@@ -55,7 +55,7 @@ class SimilarSampleFinder:
 		# let's make the lenght of every feature vector equal cond_size
 		pooling_size = n_features // cond_size
 		# get the k most similar seen classes
-		similar_labels = self.similarities[label][1:k] # use the first k columns of the similarities matrix
+		similar_labels = self.similarities[label][1:2] # use the first k columns of the similarities matrix
 		# initialize an empty list of feature vectors
 		feature_vectors = []
 		# loop over the k most similar seen classes
@@ -94,7 +94,7 @@ class SimilarSampleFinder:
 		feature_vector = torch.cat((feature_vector, noise), 0)
 		return feature_vector
 
-	def get_samples(self, labels, n_features, cond_size, k=2, agg_type='concat', pool_type='mean'):
+	def get_samples(self, labels, n_features, cond_size, k=1, agg_type='concat', pool_type='mean'):
 		'''
 		Given a batch of labels, returns a batch of features from the most similar seen classes.
 		'''
