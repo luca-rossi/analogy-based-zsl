@@ -55,7 +55,7 @@ class SimilarSampleFinder:
 		# let's make the lenght of every feature vector equal cond_size
 		pooling_size = n_features // cond_size
 		# get the k most similar seen classes
-		similar_labels = self.similarities[label][1:2] # use the first k columns of the similarities matrix
+		similar_labels = self.similarities[label][:k] # use the first k columns of the similarities matrix
 		# initialize an empty list of feature vectors
 		feature_vectors = []
 		# loop over the k most similar seen classes
