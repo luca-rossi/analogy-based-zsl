@@ -26,7 +26,7 @@ similar_sample_finder = SimilarSampleFinder(data)
 # train a preclassifier on seen classes
 train_X = data.train_X
 train_Y = data.map_labels(data.train_Y, data.seen_classes)
-pre_generator = GeneratorPretrainer(generator, loss_fn, optimizer)
+#pre_generator = GeneratorPretrainer(generator, loss_fn, optimizer)
 pre_classifier = TrainerClassifier(train_X, train_Y, data, input_dim=args.n_features, batch_size=100, hidden_size=args.hidden_size,
 				   n_epochs=50, n_classes=data.seen_classes.size(0), lr=0.001, beta1=0.5, is_preclassifier=True, device=device)
 pre_classifier.fit_precls()
