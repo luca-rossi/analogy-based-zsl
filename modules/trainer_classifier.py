@@ -8,7 +8,7 @@ class TrainerClassifier():
 	This class trains a standard log softmax classifier. It is used for training the CLSWGAN pre-classifier and the ZSL and GZSL classifiers.
 	'''
 	def __init__(self, train_X, train_Y, data_loader, input_dim=None, n_attributes=85, batch_size=64, hidden_size=4096,
-			        n_epochs=50, n_classes=50, lr=0.001, beta1=0.5, model_decoder=None, is_preclassifier=False, is_decoder_fr=False,
+				n_epochs=50, n_classes=50, lr=0.001, beta1=0.5, model_decoder=None, is_preclassifier=False, is_decoder_fr=False,
 				device='cpu', verbose=False):
 		'''
 		Setup the dataset, model, optimizer, and other parameters.
