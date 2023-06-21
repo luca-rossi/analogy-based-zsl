@@ -74,6 +74,8 @@ class SimilarSampleFinder:
 				feature_vector = torch.max(feature_vector, dim=1).values
 			elif pool_type == 'first':
 				feature_vector = feature_vector[:, 0]
+			#elif pool_type == 'linear':
+			#	feature_vector = torch.nn.Linear(len(feature_vector), len(feature_vector) , bias=False)
 			else:
 				raise ValueError('Invalid pooling type')
 			# append the feature vector to the list

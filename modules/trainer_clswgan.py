@@ -198,6 +198,8 @@ class TrainerClswgan():
 		syn_X, syn_Y = self.data.generate_syn_features(self.model_generator, self.data.unseen_classes, self.data.attributes,
 								self.features_per_class, self.n_features, self.n_attributes, self.latent_size, self.device)
 		# GZSL evaluation: concatenate real seen features with synthesized unseen features, then train and evaluate a classifier
+		print("---------------------")
+		print(syn_X)
 		train_X = torch.cat((self.data.train_X, syn_X), 0)
 		train_Y = torch.cat((self.data.train_Y, syn_Y), 0)
 		cls = TrainerClassifier(train_X, train_Y, self.data, batch_size=self.features_per_class, hidden_size=self.hidden_size,
