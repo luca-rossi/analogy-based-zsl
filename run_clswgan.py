@@ -1,4 +1,4 @@
-import random
+import random, operator
 import torch
 import torch.backends.cudnn as cudnn
 from args import parse_args
@@ -8,12 +8,11 @@ from modules.trainer_clswgan import TrainerClswgan
 from modules.similar_sample_finder import SimilarSampleFinder
 from codecarbon import EmissionsTracker
 
-tracker = EmissionsTracker(project_name="tracker_clswgan", 
+tracker = EmissionsTracker( project_name="tracker_clswgan", 
 							output_dir="./footprint", 
 							output_file="clswgan_footprint", 
 							log_level="error"
-						)
-
+							)
 # parse arguments
 args = parse_args('CLSWGAN')
 # init seed and cuda
@@ -29,13 +28,42 @@ cudnn.benchmark = True
 # load data
 data = Data(dataset_name=args.dataset, dataroot=args.dataroot)
 
-
 #Exaggerate the attributes from the most similar class, e.g. by multiplying them by a constant
-for cur in range(data.get_n_classes()):
+#for cur in range(data.get_n_classes()):
 								#this is the most similar class to the current
-	torch.mul(data.attributes[int(similar_sample_finder.similarities[cur][0])], 0.5)
+#	torch.mul(data.attributes[int(similar_sample_finder.similarities[cur][0])], 0.5)
 
 
+#Find salient attributes
+""" result = torch.min(torch.subtract(data.attributes[1], data.attributes[2]), dim=0, keepdim=False)
+print("the min is")
+print(result.values)
+print("the position is")
+print(result.indices)
+print("the original value is")
+print( data.attributes[1][int(result.indices)] )
+print("double check subtraction")
+print(data.attributes[1][int(result.indices)] - data.attributes[2][int(result.indices)] )
+ """
+class Salient:
+	def __init__(self, myClass, index, value):
+		self.myClass = myClass
+		self.index = index
+		self.value = value
+	
+least_similar= []
+for cur in range(data.get_n_classes()):
+	objects = []
+	for i in range(data.get_n_classes()):
+		#most "exclusive" attribute between two classes
+		result = torch.min(torch.subtract(data.attributes[cur], data.attributes[i]), dim=0, keepdim=False)
+		objects.append( Salient(i, result.indices, result.values) )
+	least_similar.append(  min(objects, key=operator.attrgetter('value')))
+	#index starts from zero
+	print("For class ",(cur+1), " the most salient attribute is at index", int(least_similar[cur].index), 
+       	" of the class ",(least_similar[cur].myClass+1), " with an attribute gap of", least_similar[cur].value )
+
+	
 # define similar sample finder
 similar_sample_finder = SimilarSampleFinder(data)
 # train a preclassifier on seen classes
@@ -43,7 +71,7 @@ train_X = data.train_X
 train_Y = data.map_labels(data.train_Y, data.seen_classes)
 pre_classifier = TrainerClassifier(train_X, train_Y, data, input_dim=args.n_features, batch_size=100, hidden_size=args.hidden_size,
 				   n_epochs=50, n_classes=data.seen_classes.size(0), lr=0.001, beta1=0.5, is_preclassifier=True, device=device)
-pre_classifier.fit_precls()
+#----------------------DISABLED----------pre_classifier.fit_precls()
 # freeze the preclassifier after training
 for p in pre_classifier.model.parameters():
 	p.requires_grad = False
@@ -74,7 +102,6 @@ clswgan = TrainerClswgan(data, args.dataset, pre_classifier, similar_sample_find
 #print the attributes of the first most similar class, per each class
 #for cur in range(200):
 	#print("class", curr, "  ",data.attributes[similar_sample_finder.similarities[cur][0]].tolist(),"\n\n")
-
 
 
 #for cur in range(len(data.seen_classes.tolist())):	
