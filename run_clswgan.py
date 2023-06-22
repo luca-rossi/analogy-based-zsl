@@ -6,13 +6,10 @@ from modules.data import Data
 from modules.trainer_classifier import TrainerClassifier
 from modules.trainer_clswgan import TrainerClswgan
 from modules.similar_sample_finder import SimilarSampleFinder
-from codecarbon import EmissionsTracker
+from footprint.Tracker import *
+tracker.project_name = "Tracker Clswgan"
+tracker.output_file = "clswgan_footprint.csv"
 
-tracker = EmissionsTracker( project_name="tracker_clswgan", 
-							output_dir="./footprint", 
-							output_file="clswgan_footprint", 
-							log_level="error"
-							)
 # parse arguments
 args = parse_args('CLSWGAN')
 # init seed and cuda
@@ -25,13 +22,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if device.type == 'cuda':
 	torch.cuda.manual_seed_all(args.seed)
 cudnn.benchmark = True
+
+tracker.start()
 # load data
 data = Data(dataset_name=args.dataset, dataroot=args.dataroot)
-
-#Exaggerate the attributes from the most similar class, e.g. by multiplying them by a constant
-#for cur in range(data.get_n_classes()):
-								#this is the most similar class to the current
-#	torch.mul(data.attributes[int(similar_sample_finder.similarities[cur][0])], 0.5)
 
 
 #Find salient attributes
@@ -50,18 +44,26 @@ class Salient:
 		self.myClass = myClass
 		self.index = index
 		self.value = value
-	
-least_similar= []
+
+least_similar_attr_neg, least_similar_attr_pos= [],[]
 for cur in range(data.get_n_classes()):
-	objects = []
+	objects_negative, objects_positive = [],[]
 	for i in range(data.get_n_classes()):
-		#most "exclusive" attribute between two classes
-		result = torch.min(torch.subtract(data.attributes[cur], data.attributes[i]), dim=0, keepdim=False)
-		objects.append( Salient(i, result.indices, result.values) )
-	least_similar.append(  min(objects, key=operator.attrgetter('value')))
+		#most "exclusive" (distant) attribute between two classes
+		result = torch.subtract(data.attributes[cur], data.attributes[i])
+		result_negative = torch.min(result, dim=0, keepdim=False)
+		result_positive = torch.max(result, dim=0, keepdim=False)
+		objects_negative.append( Salient(i, result_negative.indices, result_negative.values) )
+		objects_positive.append( Salient(i, result_positive.indices, result_positive.values) )
+	least_similar_attr_neg.append(  min(objects_negative, key=operator.attrgetter('value')))
+	least_similar_attr_pos.append(  max(objects_positive, key=operator.attrgetter('value')))
 	#index starts from zero
-	print("For class ",(cur+1), " the most salient attribute is at index", int(least_similar[cur].index), 
-       	" of the class ",(least_similar[cur].myClass+1), " with an attribute gap of", least_similar[cur].value )
+	print("For the class ",(cur+1), 
+       		"\n\t the most positive attribute is at index", int(least_similar_attr_pos[cur].index), 
+       		"\n\t the farthest class is ",(least_similar_attr_pos[cur].myClass+1), " with an attribute gap of", least_similar_attr_pos[cur].value, 
+			"\n\t the most negative attribute is at index", int(least_similar_attr_neg[cur].index), 
+			"\n\t the farthest class is ",(least_similar_attr_neg[cur].myClass+1), " with an attribute gap of", least_similar_attr_neg[cur].value
+		)
 
 	
 # define similar sample finder
@@ -71,7 +73,7 @@ train_X = data.train_X
 train_Y = data.map_labels(data.train_Y, data.seen_classes)
 pre_classifier = TrainerClassifier(train_X, train_Y, data, input_dim=args.n_features, batch_size=100, hidden_size=args.hidden_size,
 				   n_epochs=50, n_classes=data.seen_classes.size(0), lr=0.001, beta1=0.5, is_preclassifier=True, device=device)
-#----------------------DISABLED----------pre_classifier.fit_precls()
+pre_classifier.fit_precls()
 # freeze the preclassifier after training
 for p in pre_classifier.model.parameters():
 	p.requires_grad = False
@@ -84,25 +86,28 @@ clswgan = TrainerClswgan(data, args.dataset, pre_classifier, similar_sample_find
 						n_similar_classes=args.n_similar_classes, cond_size=args.cond_size, agg_type=args.agg_type, pool_type=args.pool_type,
 						save_every=args.save_every, device=device)
 
-
-#tracker.start()
-#clswgan.fit()
-#tracker.stop()
+clswgan.fit()
+tracker.stop()
 
 #print all 312 attributes for each of 200 (CUB) classes
-#for curr in range (200):
-#	print("class", curr, "  ",data.attributes[curr].tolist(),"\n\n")
+""" for curr in range (200):
+	print("class", curr, "  ",data.attributes[curr].tolist(),"\n\n") """
 
 
 #print the most similar class for each of 200 (CUB) classes
-#for cur in range(200):
-#	print("class ",cur, " ",similar_sample_finder.similarities[cur][0])
+""" for cur in range(200):
+	print("class ",cur, " ",similar_sample_finder.similarities[cur][0]) """
 
 
 #print the attributes of the first most similar class, per each class
-#for cur in range(200):
-	#print("class", curr, "  ",data.attributes[similar_sample_finder.similarities[cur][0]].tolist(),"\n\n")
-
-
-#for cur in range(len(data.seen_classes.tolist())):	
-	#print( similar_sample_finder.similarities[0][cur] )
+""" for cur in range(200):
+		print("class", curr, "  ",data.attributes[similar_sample_finder.similarities[cur][0]].tolist(),"\n\n")
+	for cur in range(len(data.seen_classes.tolist())):	
+		print( similar_sample_finder.similarities[0][cur] )
+ """
+#Exaggerate the attributes from the most similar class, e.g. by multiplying them by a constant
+#Put after loading data
+""" for cur in range(data.get_n_classes()):
+ """								#this is the most similar class to the current
+""" 	torch.mul(data.attributes[int(similar_sample_finder.similarities[cur][0])], 0.5)
+ """

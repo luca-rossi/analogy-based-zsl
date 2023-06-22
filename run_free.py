@@ -5,6 +5,9 @@ from args import parse_args
 from modules.data import Data
 from modules.trainer_free import TrainerFree
 from modules.similar_sample_finder import SimilarSampleFinder
+from footprint.Tracker import *
+tracker.project_name = "Tracker free"
+tracker.output_file = "free_footprint.csv"
 
 # parse arguments
 args = parse_args('FREE')
@@ -19,6 +22,8 @@ if device.type == 'cuda':
 	torch.cuda.manual_seed_all(args.seed)
 cudnn.benchmark = True
 cudnn.deterministic = True
+
+tracker.start()
 # load data
 data = Data(dataset_name=args.dataset, dataroot=args.dataroot)
 # define similar sample finder
@@ -37,3 +42,4 @@ free = TrainerFree(data, args.dataset, similar_sample_finder, n_features=args.n_
 				n_similar_classes=args.n_similar_classes, cond_size=args.cond_size, agg_type=args.agg_type, pool_type=args.pool_type,
 				save_every=args.save_every, device=device)
 free.fit()
+tracker.stop()
