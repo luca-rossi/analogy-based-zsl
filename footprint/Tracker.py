@@ -23,7 +23,7 @@ def plotConsumptions(items):
 
 	names, durations, emissions, energy =[],[],[],[]
 	for item in items:
-		names.append(str(item.project_name[0]))
+		names.append( str(item.project_name[0]) )
 		durations.append(item.duration[0]/60)
 		energy.append(item.energy_consumed[0]*1000)
 		emissions.append(item.emissions[0]*1000)

@@ -1,5 +1,8 @@
 __pycache__/
 */__pycache__/
-data/*
+data/AWA2
+data/CUB
+data/FLO
+data/SUN
 checkpoints/*
 .DS_Store
