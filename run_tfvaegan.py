@@ -5,10 +5,6 @@ from args import parse_args
 from modules.data import Data
 from modules.trainer_tfvaegan import TrainerTfvaegan
 from modules.similar_sample_finder import SimilarSampleFinder
-from footprint.Tracker import *
-tracker.project_name = "Tracker Tfvaegan"
-tracker.output_file = "tfvaegan_footprint.csv"
-
 
 # parse arguments
 args = parse_args('TFVAEGAN')
@@ -22,8 +18,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if device.type == 'cuda':
 	torch.cuda.manual_seed_all(args.seed)
 cudnn.benchmark = True
-
-tracker.start()
 # load data
 data = Data(dataset_name=args.dataset, dataroot=args.dataroot)
 # define similar sample finder
@@ -40,4 +34,3 @@ tfvaegan = TrainerTfvaegan(data, args.dataset, similar_sample_finder, n_features
 						n_similar_classes=args.n_similar_classes, cond_size=args.cond_size, agg_type=args.agg_type, pool_type=args.pool_type,
 						save_every=args.save_every, device=device)
 tfvaegan.fit()
-tracker.stop()
