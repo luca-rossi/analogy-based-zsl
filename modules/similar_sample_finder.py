@@ -47,12 +47,17 @@ class SimilarSampleFinder:
 		self.similarities = similarities
 		print(similarities)
 
-	def get_sample(self, label, n_features, cond_size, k=1, agg_type='concat', pool_type='mean'):
+	def get_sample(self, label, n_features, noise_size, cond_size, k=1, agg_type='concat', pool_type='mean'):
 		'''
 		Given a label, a number of similar classes to use (default 1), and the type of aggregation (concat or mean) and pooling (mean, max, or first),
 		returns a feature vector from the most similar seen class or a fused feature vector from the most similar seen classes.
 		'''
-		# let's make the lenght of every feature vector equal cond_size
+		# generate a noise vector
+		noise = torch.randn(noise_size)
+		# return the noise vector if we don't want to condition the GAN on similar classes features
+		if k == 0:
+			return noise
+		# let's make the length of every feature vector equal cond_size
 		pooling_size = n_features // cond_size
 		# get the k most similar seen classes
 		similar_labels = self.similarities[label][:k] # use the first k columns of the similarities matrix
@@ -74,9 +79,6 @@ class SimilarSampleFinder:
 				feature_vector = torch.max(feature_vector, dim=1).values
 			elif pool_type == 'first':
 				feature_vector = feature_vector[:, 0]
-			# TODO added this
-			#elif pool_type == 'linear':
-			#	feature_vector = torch.nn.Linear(len(feature_vector), len(feature_vector) , bias=False)
 			else:
 				raise ValueError('Invalid pooling type')
 			# append the feature vector to the list
@@ -92,14 +94,13 @@ class SimilarSampleFinder:
 			feature_vector = torch.mean(torch.stack(feature_vectors, dim=0), dim=0)
 		else:
 			raise ValueError('Invalid aggregation type.')
-		# stack a noise vector to the feature vector
-		noise = torch.randn(cond_size)
+		# stack the noise vector to the feature vector
 		feature_vector = torch.cat((feature_vector, noise), 0)
 		return feature_vector
 
-	def get_samples(self, labels, n_features, cond_size, k=1, agg_type='concat', pool_type='mean'):
+	def get_samples(self, labels, n_features, noise_size, cond_size, k=1, agg_type='concat', pool_type='mean'):
 		'''
 		Given a batch of labels, returns a batch of features from the most similar seen classes.
 		'''
 		# call the get_sample function for each label (make it an array of Tensors)
-		return torch.stack([self.get_sample(label, n_features, cond_size, k, agg_type, pool_type) for label in labels])
+		return torch.stack([self.get_sample(label, n_features, noise_size, cond_size, k, agg_type, pool_type) for label in labels])

@@ -8,12 +8,12 @@ class TrainerFree():
 	'''
 	This class implements the training and evaluation of the FREE model.
 	'''
-	def __init__(self, data, dataset_name, similar_sample_finder, n_features=2048, n_attributes=85, latent_size=85, features_per_class=1800,
+	def __init__(self, data, dataset_name, similar_sample_finder, n_features=2048, n_attributes=85, features_per_class=1800,
 				batch_size=64, hidden_size=4096, n_epochs=30, n_classes=50, n_critic_iters=5, n_loops=2,
-				lr=0.001, lr_decoder=0.0001, lr_cls=0.001, beta1=0.5, freeze_dec=False,
+				lr=0.001, lr_decoder=0.0001, lr_cls=0.001, beta1=0.5, freeze_dec=False, vae_beta=1.0,
 				weight_gp=10, weight_critic=0.1, weight_generator=0.1, weight_recons=1.0,
 				center_margin=0.2, weight_margin=0.5, weight_center=0.5, min_margin=False,
-				n_similar_classes=5, cond_size=64, agg_type='concat', pool_type='mean',
+				n_similar_classes=5, noise_size=85, cond_size=64, agg_type='concat', pool_type='mean',
 				save_every=0, device='cpu', verbose=False):
 		'''
 		Setup models, optimizers, and other parameters.
@@ -38,20 +38,21 @@ class TrainerFree():
 		self.center_margin = center_margin
 		self.weight_margin = weight_margin
 		self.weight_center = weight_center
+		self.vae_beta = vae_beta
 		self.save_every = save_every
 		self.device = device
 		self.verbose = verbose
 		# analogy-based
 		self.similar_sample_finder = similar_sample_finder
 		self.n_similar_classes = n_similar_classes
-		self.cond_size = cond_size
+		self.noise_size = noise_size
+		self.cond_size = cond_size if cond_size != -1 else n_features
+		self.latent_size = noise_size + (self.cond_size * n_similar_classes if agg_type == 'concat' else cond_size)
 		self.agg_type = agg_type
 		self.pool_type = pool_type
-		latent_size = cond_size * (n_similar_classes + 1) if agg_type == 'concat' else cond_size * 2
-		self.latent_size = latent_size
 		# init models
-		self.model_encoder = Encoder(n_features, n_attributes, latent_size, hidden_size).to(device)
-		self.model_generator = Generator(n_features, n_attributes, latent_size, hidden_size, use_sigmoid=True).to(device)
+		self.model_encoder = Encoder(n_features, n_attributes, self.latent_size, hidden_size).to(device)
+		self.model_generator = Generator(n_features, n_attributes, self.latent_size, hidden_size, use_sigmoid=True).to(device)
 		self.model_critic = Critic(n_features, n_attributes, hidden_size).to(device)
 		self.model_decoder = FRDecoder(n_features, n_attributes, hidden_size).to(device)
 		self.center_criterion = LossMarginCenter(n_classes=self.data.seen_classes.size(0), n_attributes=self.n_attributes, min_margin=min_margin, device=self.device)
@@ -97,7 +98,6 @@ class TrainerFree():
 		Load a checkpoint if it exists.
 		'''
 		start_epoch = 0
-		# TODO added try except
 		try:
 			checkpoints = [f for f in os.listdir('checkpoints') if f.startswith(f'FREE_{self.dataset_name}')]
 			if len(checkpoints) > 0:
@@ -121,7 +121,7 @@ class TrainerFree():
 				torch.set_rng_state(checkpoint['random_state'])
 				print('Checkpoint loaded.')
 		except FileNotFoundError:
-			print("No checkpoint -> skipping")
+			print("No checkpoint to load.")
 		return start_epoch
 
 	def __save_checkpoint(self, epoch):
@@ -230,7 +230,7 @@ class TrainerFree():
 		# generate a fake batch from a latent distribution, learned from real features
 		recon_x, means, log_var = self.__generate_from_features()
 		# VAE loss
-		loss_vae = loss_vae_fn(recon_x, self.batch_features, means, log_var)
+		loss_vae = loss_vae_fn(recon_x, self.batch_features, means, log_var, beta=self.vae_beta)
 		# generator loss from the critic's evaluation
 		critic_fake = self.model_critic(recon_x, self.batch_attributes).mean()
 		loss_generator = -critic_fake
@@ -255,9 +255,9 @@ class TrainerFree():
 		# use real features to generate a latent distribution with the encoder
 		means, log_var = self.model_encoder(self.batch_features, self.batch_attributes)
 		# train with synthetic batch
-		noise = self.similar_sample_finder.get_samples(self.batch_labels, self.n_features, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
+		gen_input = self.similar_sample_finder.get_samples(self.batch_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
 		# generate a fake batch with the generator from the latent distribution
-		fake = self.model_generator(noise, self.batch_attributes)
+		fake = self.model_generator(gen_input, self.batch_attributes)
 		return fake, means, log_var
 
 	def __adjust_weight_gp(self, gp_sum):

@@ -16,14 +16,14 @@ def loss_grad_penalty_fn(model, batch_real, batch_fake, batch_attributes, batch_
 	gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * weight_gp
 	return gradient_penalty
 
-def loss_vae_fn(recon_x, x, mean, log_var):
+def loss_vae_fn(recon_x, x, mean, log_var, beta=1.0):
 	'''
 	VAE loss.
 	'''
 	bce = nn.functional.binary_cross_entropy(recon_x + 1e-12, x.detach(), reduction='sum')
 	bce = bce.sum() / x.size(0)
 	kld = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp()) / x.size(0)
-	return (bce + kld)
+	return (bce + beta * kld)
 
 def loss_reconstruction_fn(pred, gt):
 	'''

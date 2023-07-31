@@ -317,14 +317,15 @@ def parse_args(model='CLSWGAN'):
 	# Create the first parser to get the dataset name and dataset-independent parameters
 	parser = argparse.ArgumentParser(add_help=False)
 	parser.add_argument('--dataset', '-d', default='AWA2', help='dataset name (folder containing the res101.mat and att_splits.mat files)')
-	parser.add_argument('--dataroot', '-p', default='./data', help='path to dataset')
+	parser.add_argument('--dataroot', '-p', default='../data', help='path to dataset')
 	parser.add_argument('--split', '-s', default='', help='name of the split (e.g. \'_gcs\', \'_mas\', etc.)')
 	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
-	parser.add_argument('--n_similar_classes', type=int, default=1, help='how many similar classes to use for conditional generation')
-	parser.add_argument('--cond_size', type=int, default=64, help='size of one sample in the conditioning vector')
-	parser.add_argument('--use_concat', action='store_true', default=False, help='use concatenation when conditioning on similar classes (vs. averaging)')
-	parser.add_argument('--agg_type', default='concat', help='how to aggregate the similar classes for conditioning (concat or mean)')
-	parser.add_argument('--pool_type', default='mean', help='how to pool the similar classes for conditioning (mean, max, or first)')
+	parser.add_argument('--n_similar_classes', '-k', type=int, default=0, help='how many similar classes to use for conditional generation')
+	parser.add_argument('--cond_size', '-c', type=int, default=-1, help='size of one sample in the conditioning vector, if -1 use the feature vector size')
+	parser.add_argument('--agg_type', '-a', default='concat', help='how to aggregate the similar classes for conditioning (concat or mean)')
+	parser.add_argument('--pool_type', '-l', default='mean', help='how to pool the similar classes for conditioning (mean, max, or first)')
+	# Extra params
+	parser.add_argument('--vae_beta', type=float, default=1.0, help='the beta parameter for the VAE loss')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
 	args.dataset = 'AWA2' if args.dataset.upper() == 'AWA' else args.dataset.upper()

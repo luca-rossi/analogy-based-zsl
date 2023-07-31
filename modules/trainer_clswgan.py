@@ -8,9 +8,9 @@ class TrainerClswgan():
 	'''
 	This class implements the training and evaluation of the CLSWGAN model.
 	'''
-	def __init__(self, data, dataset_name, pre_classifier, similar_sample_finder, n_features=2048, n_attributes=85, latent_size=85, features_per_class=1800,
+	def __init__(self, data, dataset_name, pre_classifier, similar_sample_finder, n_features=2048, n_attributes=85, features_per_class=1800,
 				batch_size=64, hidden_size=4096, n_epochs=30, n_classes=50, n_critic_iters=5, lr=0.001, lr_cls=0.001, beta1=0.5,
-				weight_gp=10, weight_precls=1, n_similar_classes=5, cond_size=64, agg_type='concat', pool_type='mean',
+				weight_gp=10, weight_precls=1, noise_size=85, cond_size=64, n_similar_classes=5, agg_type='concat', pool_type='mean',
 				save_every=0, device='cpu', verbose=False):
 		'''
 		Setup models, optimizers, and other parameters.
@@ -20,7 +20,6 @@ class TrainerClswgan():
 		self.pre_classifier = pre_classifier
 		self.n_features = n_features
 		self.n_attributes = n_attributes
-		self.latent_size = latent_size
 		self.features_per_class = features_per_class
 		self.batch_size = batch_size
 		self.hidden_size = hidden_size
@@ -36,13 +35,13 @@ class TrainerClswgan():
 		# analogy-based
 		self.similar_sample_finder = similar_sample_finder
 		self.n_similar_classes = n_similar_classes
-		self.cond_size = cond_size
+		self.noise_size = noise_size
+		self.cond_size = cond_size if cond_size != -1 else n_features
+		self.latent_size = noise_size + (self.cond_size * n_similar_classes if agg_type == 'concat' else cond_size)
 		self.agg_type = agg_type
 		self.pool_type = pool_type
-		latent_size = cond_size * (n_similar_classes + 1) if agg_type == 'concat' else cond_size * 2
-		self.latent_size = latent_size
 		# init models
-		self.model_generator = Generator(n_features, n_attributes, latent_size, hidden_size).to(device)
+		self.model_generator = Generator(n_features, n_attributes, self.latent_size, hidden_size).to(device)
 		self.model_critic = Critic(n_features, n_attributes, hidden_size).to(device)
 		print(self.model_generator)
 		print(self.model_critic)
@@ -55,7 +54,7 @@ class TrainerClswgan():
 		self.batch_features = torch.FloatTensor(batch_size, n_features).to(device)
 		self.batch_attributes = torch.FloatTensor(batch_size, n_attributes).to(device)
 		self.batch_labels = torch.LongTensor(batch_size).to(device)
-		self.batch_noise = torch.FloatTensor(batch_size, latent_size).to(device)
+		self.batch_input = torch.FloatTensor(batch_size, self.latent_size).to(device)
 		self.one = torch.tensor(1, dtype=torch.float).to(device)
 		self.mone = self.one * -1
 
@@ -84,7 +83,6 @@ class TrainerClswgan():
 		Load a checkpoint if it exists.
 		'''
 		start_epoch = 0
-		# TODO added try except
 		try:
 			checkpoints = [f for f in os.listdir('checkpoints') if f.startswith(f'CLSWGAN_{self.dataset_name}')]
 			if len(checkpoints) > 0:
@@ -102,7 +100,7 @@ class TrainerClswgan():
 				torch.set_rng_state(checkpoint['random_state'])
 				print('Checkpoint loaded.')
 		except FileNotFoundError:
-			print("No checkpoint -> skipping")
+			print("No checkpoint to load.")
 		return start_epoch
 
 	def __save_checkpoint(self, epoch):
@@ -158,8 +156,8 @@ class TrainerClswgan():
 		critic_real = self.model_critic(self.batch_features, self.batch_attributes).mean()
 		critic_real.backward(self.mone)
 		# train with synthetic batch
-		self.batch_noise = self.similar_sample_finder.get_samples(self.batch_labels, self.n_features, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
-		fake = self.model_generator(self.batch_noise, self.batch_attributes)
+		self.batch_input = self.similar_sample_finder.get_samples(self.batch_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
+		fake = self.model_generator(self.batch_input, self.batch_attributes)
 		critic_fake = self.model_critic(fake.detach(), self.batch_attributes).mean()
 		critic_fake.backward(self.one)
 		# gradient penalty
@@ -177,8 +175,8 @@ class TrainerClswgan():
 		'''
 		# train the generator
 		self.model_generator.zero_grad()
-		self.batch_noise = self.similar_sample_finder.get_samples(self.batch_labels, self.n_features, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
-		fake = self.model_generator(self.batch_noise, self.batch_attributes)
+		self.batch_input = self.similar_sample_finder.get_samples(self.batch_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
+		fake = self.model_generator(self.batch_input, self.batch_attributes)
 		critic_fake = self.model_critic(fake, self.batch_attributes).mean()
 		loss_generator = -critic_fake
 		# loss
