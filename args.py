@@ -13,7 +13,6 @@ defaults = {
 			'features_per_class': 1800,
 			'n_epochs': 30,
 			'n_critic_iters': 5,
-			'n_loops': 2,
 			'lr': 0.00001,
 			'lr_cls': 0.001,
 			'beta1': 0.5,
@@ -31,7 +30,6 @@ defaults = {
 			'features_per_class': 300,
 			'n_epochs': 56,
 			'n_critic_iters': 5,
-			'n_loops': 2,
 			'lr': 0.0001,
 			'lr_cls': 0.001,
 			'beta1': 0.5,
@@ -49,7 +47,6 @@ defaults = {
 			'features_per_class': 1200,
 			'n_epochs': 80,
 			'n_critic_iters': 5,
-			'n_loops': 2,
 			'lr': 0.0001,
 			'lr_cls': 0.001,
 			'beta1': 0.5,
@@ -67,7 +64,6 @@ defaults = {
 			'features_per_class': 400,
 			'n_epochs': 40,
 			'n_critic_iters': 5,
-			'n_loops': 2,
 			'lr': 0.0002,
 			'lr_cls': 0.001,
 			'beta1': 0.5,
@@ -313,30 +309,65 @@ help_params = {
 	'weight_center': 'the weight for inter-class (vs. intra-class) distance in the SAMC loss'
 }
 
-def parse_args(model='CLSWGAN'):
+def clean_dataset_name(dataset_name):
+	return 'AWA2' if dataset_name.upper() == 'AWA' else dataset_name.upper()
+
+def parse_args():
 	# Create the first parser to get the dataset name and dataset-independent parameters
 	parser = argparse.ArgumentParser(add_help=False)
+	parser.add_argument('--model', '-m', default='', help='sets default model parameters (C = CLSWGAN, T = TFVAEGAN, F = FREE)')
 	parser.add_argument('--dataset', '-d', default='AWA2', help='dataset name (folder containing the res101.mat and att_splits.mat files)')
-	parser.add_argument('--dataroot', '-p', default='../data', help='path to dataset')
+	parser.add_argument('--dataroot', '-r', default='../data', help='path to dataset')
 	parser.add_argument('--split', '-s', default='', help='name of the split (e.g. \'_gcs\', \'_mas\', etc.)')
 	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
 	parser.add_argument('--n_similar_classes', '-k', type=int, default=0, help='how many similar classes to use for conditional generation')
 	parser.add_argument('--cond_size', '-c', type=int, default=-1, help='size of one sample in the conditioning vector, if -1 use the feature vector size')
 	parser.add_argument('--agg_type', '-a', default='concat', help='how to aggregate the similar classes for conditioning (concat or mean)')
 	parser.add_argument('--pool_type', '-l', default='mean', help='how to pool the similar classes for conditioning (mean, max, or first)')
+	parser.add_argument('--use_preclassifier', '-p', action='store_true', help='use a preclassifier like in CLSWGAN')
+	parser.add_argument('--use_feedback', '-f', action='store_true', help='use a feedback module like in TFVAEGAN')
+	parser.add_argument('--use_encoder', '-n', action='store_true', help='use an encoder like in TFVAEGAN and FREE')
+	parser.add_argument('--use_margin', '-g', action='store_true', help='use the SAMC loss like in FREE')
 	# Extra params
 	parser.add_argument('--vae_beta', type=float, default=1.0, help='the beta parameter for the VAE loss')
+	parser.add_argument('--adjust_weight_gp', action='store_true', help='dynamically adjust the weight of the gradient penalty')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
-	args.dataset = 'AWA2' if args.dataset.upper() == 'AWA' else args.dataset.upper()
+	# Clean values
+	args.model = args.model.lower()
+	args.model = 'CLSWGAN' if args.model == 'c' else 'TFVAEGAN' if args.model == 't' else 'FREE' if args.model == 'f' else args.model
+	args.dataset = clean_dataset_name(args.dataset)
+	args.split = args.split.lower()
+	args.agg_type = args.agg_type.lower()
+	args.pool_type = args.pool_type.lower()
+	# If the model is specified, override parameters
+	if args.model == 'CLSWGAN':
+		args.use_preclassifier = True
+		args.use_feedback = False
+		args.use_encoder = False
+		args.use_margin = False
+	elif args.model == 'TFVAEGAN':
+		args.use_preclassifier = False
+		args.use_feedback = True
+		args.use_encoder = True
+		args.use_margin = False
+	elif args.model == 'FREE':
+		args.use_preclassifier = False
+		args.use_feedback = False
+		args.use_encoder = True
+		args.use_margin = True
 	# Create the second parser to get the model parameters
 	subparser = argparse.ArgumentParser(add_help=True, parents=[parser])
-	# Add model- and dataset-specific parameters
-	for param, value in defaults[model][args.dataset].items():
-		subparser.add_argument('--' + param, type=type(value), default=value, help=help_params[param])
+	# If args.model is among the keys of the defaults dictionary, use those model- and dataset-specific parameters
+	if args.model in defaults.keys():
+		for param, value in defaults[args.model][args.dataset].items():
+			subparser.add_argument('--' + param, type=type(value), default=value, help=help_params[param])
 	# Parse the new arguments
 	args, _ = subparser.parse_known_args(namespace=args)
-	args.dataset = 'AWA2' if args.dataset.upper() == 'AWA' else args.dataset.upper()
+	# Clean values
+	args.dataset = clean_dataset_name(args.dataset)
+	if args.cond_size == -1:
+		args.cond_size = args.n_features
 	# Print the arguments
 	print('Arguments:')
 	for param, value in vars(args).items():

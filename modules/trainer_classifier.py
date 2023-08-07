@@ -159,7 +159,7 @@ class TrainerClassifier():
 			if self.is_decoder_fr:
 				_, feat2 = self.model_decoder(part_features)
 				feat1 = self.model_decoder.get_hidden_features()
-			else:				
+			else:
 				feat1 = self.model_decoder(part_features)
 				feat2 = self.model_decoder.get_hidden_features()
 			new_features[start:end] = torch.cat([part_features, feat1, feat2], dim=1).data
