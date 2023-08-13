@@ -389,8 +389,9 @@ class Trainer():
 			decoder = self.model_decoder
 		# Generate synthetic features
 		syn_X, syn_Y = self.data.generate_syn_features(self.model_generator, self.data.unseen_classes, self.data.attributes,
-								self.features_per_class, self.n_features, self.n_attributes, self.latent_size, self.device,
-								model_decoder=decoder, model_feedback=feedback, feedback_weight=self.weight_feed_eval)
+								self.features_per_class, self.n_features, self.n_attributes, self.latent_size,
+								model_decoder=decoder, model_feedback=feedback, feedback_weight=self.weight_feed_eval,
+								device=self.device)
 		# GZSL evaluation: concatenate real seen features with synthesized unseen features, then train and evaluate a classifier
 		train_X = torch.cat((self.data.train_X, syn_X), 0)
 		train_Y = torch.cat((self.data.train_Y, syn_Y), 0)

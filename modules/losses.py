@@ -95,7 +95,7 @@ class LossMarginCenter(nn.Module):
 		'''
 		Compute the 'other' distances for each sample by picking the minimum other distance for each sample.
 		'''
-		other = torch.FloatTensor(batch_size, self.n_classes - 1).cuda()
+		other = torch.FloatTensor(batch_size, self.n_classes - 1).to(self.device)
 		for i in range(batch_size):
 			other[i] = (all_distances[i, mask[i, :] == 0])
 		return other.min(dim=1)[0]
@@ -106,4 +106,4 @@ class LossMarginCenter(nn.Module):
 		Compute the Self-Adaptive Margin Center loss.
 		'''
 		return torch.max(margin + weight_center * distances - (1 - weight_center) * other_distances, 
-						 torch.tensor(0.0).cuda()).sum() / batch_size
+						 torch.tensor(0.0).to(self.device)).sum() / batch_size

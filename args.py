@@ -317,7 +317,7 @@ def parse_args():
 	parser = argparse.ArgumentParser(add_help=False)
 	parser.add_argument('--model', '-m', default='', help='sets default model parameters (C = CLSWGAN, T = TFVAEGAN, F = FREE)')
 	parser.add_argument('--dataset', '-d', default='AWA2', help='dataset name (folder containing the res101.mat and att_splits.mat files)')
-	parser.add_argument('--dataroot', '-r', default='../data', help='path to dataset')
+	parser.add_argument('--dataroot', '-r', default='./data', help='path to dataset')
 	parser.add_argument('--split', '-s', default='', help='name of the split (e.g. \'_gcs\', \'_mas\', etc.)')
 	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
 	parser.add_argument('--n_similar_classes', '-k', type=int, default=0, help='how many similar classes to use for conditional generation')

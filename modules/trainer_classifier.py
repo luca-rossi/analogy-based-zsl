@@ -2,14 +2,16 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from modules.models import Classifier
+from typing import List, Tuple
 
-class TrainerClassifier():
+class TrainerClassifier:
 	'''
 	This class trains a standard log softmax classifier. It is used for training the CLSWGAN pre-classifier and the ZSL and GZSL classifiers.
 	'''
-	def __init__(self, train_X, train_Y, data_loader, input_dim=None, n_attributes=85, batch_size=64, hidden_size=4096,
-				n_epochs=50, n_classes=50, lr=0.001, beta1=0.5, model_decoder=None, is_preclassifier=False, is_decoder_fr=False,
-				device='cpu', verbose=False):
+	def __init__(self, train_X: torch.Tensor, train_Y: torch.Tensor, data_loader, input_dim: int = None, n_attributes: int = 85, 
+				 batch_size: int = 64, hidden_size: int = 4096, n_epochs: int = 50, n_classes: int = 50, lr: float = 0.001, 
+				 beta1: float = 0.5, model_decoder = None, is_preclassifier: bool = False, is_decoder_fr: bool = False,
+				 device: torch.device = torch.device('cpu'), verbose: bool = False):
 		'''
 		Setup the dataset, model, optimizer, and other parameters.
 		'''
@@ -19,7 +21,7 @@ class TrainerClassifier():
 		if input_dim is None:
 			input_dim = train_X.size(1)
 		if not is_preclassifier:
-			# set up the ZSL / GZSL dataset.
+			# Set up the ZSL / GZSL dataset
 			self.test_seen_X = data_loader.test_seen_X.clone()
 			self.test_seen_Y = data_loader.test_seen_Y
 			self.test_unseen_X = data_loader.test_unseen_X.clone()
@@ -28,14 +30,12 @@ class TrainerClassifier():
 			self.unseen_classes = data_loader.unseen_classes
 			self.model_decoder = model_decoder
 			self.is_decoder_fr = is_decoder_fr
-			# used for TF-VAEGAN and FREE
 			if self.model_decoder:
-				# use the decoder to decode the dataset
 				self.model_decoder.eval()
 				input_dim += n_attributes + hidden_size
-				train_X = self.__compute_decoder_output(train_X, input_dim)
-				self.test_unseen_X = self.__compute_decoder_output(self.test_unseen_X, input_dim)
-				self.test_seen_X = self.__compute_decoder_output(self.test_seen_X, input_dim)
+				train_X = self.__decode_features(train_X, input_dim)
+				self.test_unseen_X = self.__decode_features(self.test_unseen_X, input_dim)
+				self.test_seen_X = self.__decode_features(self.test_seen_X, input_dim)
 		self.train_X = train_X
 		self.train_Y = train_Y
 		self.input_dim = input_dim
@@ -54,17 +54,17 @@ class TrainerClassifier():
 		'''
 		Train the pre-classifier.
 		'''
-		for epoch in range(self.n_epochs):
-			for i in range(0, self.dataset_size, self.batch_size):
+		for _ in range(self.n_epochs):
+			for _ in range(0, self.dataset_size, self.batch_size):
 				self.__train_batch()
 
-	def fit_zsl(self):
+	def fit_zsl(self) -> float:
 		'''
 		Train and evaluate the ZSL classifier.
 		'''
 		best_acc = 0
-		for epoch in range(self.n_epochs):
-			for i in range(0, self.dataset_size, self.batch_size):
+		for _ in range(self.n_epochs):
+			for _ in range(0, self.dataset_size, self.batch_size):
 				self.__train_batch()
 			test_Y = self.data_loader.map_labels(self.test_unseen_Y, self.unseen_classes)
 			mapped_classes = torch.arange(self.unseen_classes.size(0))
@@ -75,15 +75,15 @@ class TrainerClassifier():
 				best_acc = acc
 		return best_acc
 
-	def fit_gzsl(self):
+	def fit_gzsl(self) -> Tuple[float, float, float]:
 		'''
 		Train and evaluate the GZSL classifier.
 		'''
 		best_seen = 0
 		best_unseen = 0
 		best_H = 0
-		for epoch in range(self.n_epochs):
-			for i in range(0, self.dataset_size, self.batch_size):
+		for _ in range(self.n_epochs):
+			for _ in range(0, self.dataset_size, self.batch_size):
 				self.__train_batch()
 			acc_seen = self.__eval_accuracy(self.test_seen_X, self.test_seen_Y, self.seen_classes)
 			acc_unseen = self.__eval_accuracy(self.test_unseen_X, self.test_unseen_Y, self.unseen_classes)
@@ -111,7 +111,7 @@ class TrainerClassifier():
 		if self.verbose:
 			print('Classifier loss: ', loss.data.item())
 
-	def __next_batch(self, batch_size):
+	def __next_batch(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
 		'''
 		Select a batch of data sequentially.
 		'''
@@ -146,7 +146,7 @@ class TrainerClassifier():
 		end = self.batch_index
 		return self.train_X[start:end], self.train_Y[start:end]
 
-	def __compute_decoder_output(self, features, output_dim):
+	def __decode_features(self, features: torch.Tensor, output_dim: int) -> torch.Tensor:
 		'''
 		Compute the decoder output from the input features.
 		'''
@@ -166,7 +166,7 @@ class TrainerClassifier():
 			start = end
 		return new_features
 	
-	def __eval_accuracy(self, test_X, test_Y, target_classes):
+	def __eval_accuracy(self, test_X: torch.Tensor, test_Y: torch.Tensor, target_classes: torch.Tensor) -> float:
 		'''
 		Evaluate the per class accuracy of the classifier.
 		'''

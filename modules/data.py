@@ -27,7 +27,7 @@ class Data:
 		train_loc = matcontent['trainval_loc'].squeeze() - 1
 		test_seen_loc = matcontent['test_seen_loc'].squeeze() - 1
 		test_unseen_loc = matcontent['test_unseen_loc'].squeeze() - 1
-		# Normalize attributes
+		# Normalize attributes (note: the datasets used here are already normalized, but we do it again just in case)
 		attributes /= attributes.pow(2).sum(1).sqrt().unsqueeze(1).expand(attributes.size(0), attributes.size(1))
 		self.attributes = attributes
 		# Transform features and labels
