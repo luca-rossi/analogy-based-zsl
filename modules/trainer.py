@@ -27,6 +27,7 @@ class Trainer():
 		self.batch_size = kwargs.get('batch_size', 64)
 		self.hidden_size = kwargs.get('hidden_size', 4096)
 		self.n_epochs = kwargs.get('n_epochs', 30)
+		self.n_epochs_cls = kwargs.get('n_epochs_cls', 25)
 		self.n_classes = kwargs.get('n_classes', 50)
 		self.n_loops = kwargs.get('n_loops', 1)
 		self.n_critic_iters = kwargs.get('n_critic_iters', 5)
@@ -37,7 +38,10 @@ class Trainer():
 		self.lr_feedback = kwargs.get('lr_feedback', 0.0001)
 		self.lr_decoder = kwargs.get('lr_decoder', 0.0001)
 		self.beta1 = kwargs.get('beta1', 0.5)
+		self.beta1_cls = kwargs.get('beta1_cls', 0.5)
 		self.weight_gp = kwargs.get('weight_gp', 10)
+		self.synthesize_all = kwargs.get('synthesize_all', False)
+		self.reg_recons = kwargs.get('reg_recons', 0.0)
 		self.adjust_weight_gp = kwargs.get('adjust_weight_gp', False)
 		self.save_every = kwargs.get('save_every', 0)
 		self.device = device
@@ -253,7 +257,7 @@ class Trainer():
 		# Train with real batch
 		self.model_decoder.zero_grad()
 		means, recons = self.model_decoder(self.batch_features)
-		loss_decoder = self.weight_recons * loss_reconstruction_fn(recons, self.batch_attributes)
+		loss_decoder = self.weight_recons * loss_reconstruction_fn(recons, self.batch_attributes, reg_recons=self.reg_recons)
 		# SAMC loss through means
 		if self.use_margin:
 			center_loss_real = self.center_criterion(means, self.batch_labels, margin=self.center_margin, weight_center=self.weight_center)
@@ -316,7 +320,7 @@ class Trainer():
 		if self.use_encoder:
 			self.model_decoder.zero_grad()
 			_, recons_fake = self.model_decoder(fake)
-			loss_recons = loss_reconstruction_fn(recons_fake, self.batch_attributes)
+			loss_recons = loss_reconstruction_fn(recons_fake, self.batch_attributes, reg_recons=self.reg_recons)
 			loss_generator_tot += loss_vae
 			loss_generator_tot += self.weight_recons * loss_recons
 		# Preclassifier loss
@@ -387,26 +391,30 @@ class Trainer():
 		if self.use_encoder:
 			self.model_decoder.eval()
 			decoder = self.model_decoder
+		# Select the classes to synthesize (all or just unseen) for GZSL
+		classes_to_synthesize = self.data.all_classes if self.synthesize_all else self.data.unseen_classes
 		# Generate synthetic features
-		syn_X, syn_Y = self.data.generate_syn_features(self.model_generator, self.data.unseen_classes, self.data.attributes,
+		syn_X, syn_Y = self.data.generate_syn_features(self.model_generator, classes_to_synthesize, self.data.attributes,
 								self.features_per_class, self.n_features, self.n_attributes, self.latent_size,
 								model_decoder=decoder, model_feedback=feedback, feedback_weight=self.weight_feed_eval,
 								device=self.device)
-		# GZSL evaluation: concatenate real seen features with synthesized unseen features, then train and evaluate a classifier
-		train_X = torch.cat((self.data.train_X, syn_X), 0)
-		train_Y = torch.cat((self.data.train_Y, syn_Y), 0)
+		# GZSL evaluation: concatenate real or synthetic seen features with synthetic unseen features,
+		# then train and evaluate a classifier
+		train_X = syn_X if self.synthesize_all else torch.cat((self.data.train_X, syn_X), 0)
+		train_Y = syn_Y if self.synthesize_all else torch.cat((self.data.train_Y, syn_Y), 0)
 		cls = TrainerClassifier(train_X, train_Y, self.data, n_attributes=self.n_attributes, batch_size=self.features_per_class,
-				hidden_size=self.hidden_size, n_epochs=25, n_classes=self.n_classes, lr=self.lr_cls, beta1=0.5,
+				hidden_size=self.hidden_size, n_epochs=self.n_epochs_cls, n_classes=self.n_classes, lr=self.lr_cls, beta1=self.beta1_cls,
 				model_decoder=decoder, is_decoder_fr=is_decoder_fr, device=self.device)
 		acc_seen, acc_unseen, acc_H = cls.fit_gzsl()
 		if self.best_gzsl_acc_H < acc_H:
 			self.best_gzsl_acc_seen, self.best_gzsl_acc_unseen, self.best_gzsl_acc_H = acc_seen, acc_unseen, acc_H
 		print('GZSL - Seen: %.4f, Unseen: %.4f, H: %.4f' % (acc_seen, acc_unseen, acc_H))
 		# ZSL evaluation: use only synthesized unseen features, then train and evaluate a classifier
-		train_X = syn_X
-		train_Y = self.data.map_labels(syn_Y, self.data.unseen_classes)
+		positions_to_keep = torch.isin(syn_Y, self.data.unseen_classes)
+		train_X = syn_X[positions_to_keep]
+		train_Y = self.data.map_labels(syn_Y[positions_to_keep], self.data.unseen_classes)
 		cls = TrainerClassifier(train_X, train_Y, self.data, n_attributes=self.n_attributes, batch_size=self.features_per_class,
-				hidden_size=self.hidden_size, n_epochs=25, n_classes=self.data.unseen_classes.size(0), lr=self.lr_cls, beta1=0.5,
+				hidden_size=self.hidden_size, n_epochs=self.n_epochs_cls, n_classes=self.data.unseen_classes.size(0), lr=self.lr_cls, beta1=self.beta1_cls,
 				model_decoder=decoder, is_decoder_fr=is_decoder_fr, device=self.device)
 		acc = cls.fit_zsl()
 		if self.best_zsl_acc < acc:

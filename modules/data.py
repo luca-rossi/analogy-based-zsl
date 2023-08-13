@@ -43,6 +43,7 @@ class Data:
 		# Get seen and unseen classes
 		self.seen_classes = torch.from_numpy(np.unique(self.train_Y.numpy()))
 		self.unseen_classes = torch.from_numpy(np.unique(self.test_unseen_Y.numpy()))
+		self.all_classes = torch.cat((self.seen_classes, self.unseen_classes))
 		self.dataset_size = self.train_X.size(0)
 		# Print dataset info
 		self.__print_dataset_info()
