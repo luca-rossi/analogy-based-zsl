@@ -9,7 +9,7 @@ class Trainer():
 	'''
 	This class implements the training and evaluation of the model.
 	'''
-	def __init__(self, data, dataset_name, similar_sample_finder, device: torch.device = torch.device('cpu'), **kwargs):
+	def __init__(self, data, dataset_name, conditioner, device: torch.device = torch.device('cpu'), **kwargs):
 		'''
 		Setup models, optimizers, and other parameters.
 		'''
@@ -64,7 +64,7 @@ class Trainer():
 		self.weight_center = kwargs.get('weight_center', 0.5)
 		self.min_margin = kwargs.get('min_margin', False)
 		# Init generator conditioning parameters
-		self.similar_sample_finder = similar_sample_finder
+		self.conditioner = conditioner
 		self.n_similar_classes = kwargs.get('n_similar_classes', 0)
 		self.agg_type = kwargs.get('agg_type', 'concat')
 		self.pool_type = kwargs.get('pool_type', 'mean')
@@ -350,7 +350,7 @@ class Trainer():
 			# Use real features to generate a latent distribution with the encoder
 			means, log_var = self.model_encoder(self.batch_features, self.batch_attributes)
 		# Conditional input for the generator
-		gen_input = self.similar_sample_finder.get_samples(self.batch_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
+		gen_input = self.conditioner.get_vector(self.batch_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
 		# Generate a fake batch with the generator from the latent distribution
 		fake = self.model_generator(gen_input, self.batch_attributes)
 		# From the second feedback loop onward, improve the generated features with the feedback module
@@ -391,13 +391,8 @@ class Trainer():
 		if self.use_encoder:
 			self.model_decoder.eval()
 			decoder = self.model_decoder
-		# Select the classes to synthesize (all or just unseen) for GZSL
-		classes_to_synthesize = self.data.all_classes if self.synthesize_all else self.data.unseen_classes
 		# Generate synthetic features
-		syn_X, syn_Y = self.data.generate_syn_features(self.model_generator, classes_to_synthesize, self.data.attributes,
-								self.features_per_class, self.n_features, self.n_attributes, self.latent_size,
-								model_decoder=decoder, model_feedback=feedback, feedback_weight=self.weight_feed_eval,
-								device=self.device)
+		syn_X, syn_Y = self.__generate_syn_features(model_decoder=decoder, model_feedback=feedback)
 		# GZSL evaluation: concatenate real or synthetic seen features with synthetic unseen features,
 		# then train and evaluate a classifier
 		train_X = syn_X if self.synthesize_all else torch.cat((self.data.train_X, syn_X), 0)
@@ -426,3 +421,36 @@ class Trainer():
 			self.model_feedback.train()
 		if self.use_encoder:
 			self.model_decoder.train()
+
+	def __generate_syn_features(self, model_decoder=None, model_feedback=None) -> Tuple[torch.Tensor, torch.Tensor]:
+		'''
+		Generate synthetic features for each class.
+		'''
+		# Select the classes to synthesize (all or just unseen) for GZSL
+		classes = self.data.all_classes if self.synthesize_all else self.data.unseen_classes
+		n_classes = classes.size(0)
+		# Initialize the synthetic dataset tensors
+		syn_X = torch.FloatTensor(n_classes * self.features_per_class, self.n_features)
+		syn_Y = torch.LongTensor(n_classes * self.features_per_class)
+		# Initialize the tensors for the generator input
+		syn_attributes = torch.FloatTensor(self.features_per_class, self.n_attributes).to(self.device)
+		# Generate synthetic features for each class and update the synthetic dataset
+		for i in range(classes.size(0)):
+			curr_class = classes[i]
+			curr_labels = torch.LongTensor(self.features_per_class).fill_(curr_class)
+			curr_attributes = self.data.attributes[curr_class]
+			# Conditional input for the generator
+			gen_input = self.conditioner.get_vector(curr_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
+			# Generate features conditioned on the current class' signature
+			syn_attributes.copy_(curr_attributes.repeat(self.features_per_class, 1))
+			fake = self.model_generator(gen_input, syn_attributes)
+			# Go through the feedback module (only for TF-VAEGAN)
+			if model_feedback is not None:
+				_ = model_decoder(fake)  # Call the forward function of decoder to get the hidden features
+				decoder_features = model_decoder.get_hidden_features()
+				feedback = model_feedback(decoder_features)
+				fake = self.model_generator(gen_input, syn_attributes, self.weight_feed_eval, feedback=feedback)
+			# Copy the features and labels to the synthetic dataset
+			syn_X.narrow(0, i * self.features_per_class, self.features_per_class).copy_(fake.data.cpu())
+			syn_Y.narrow(0, i * self.features_per_class, self.features_per_class).fill_(curr_class)
+		return syn_X, syn_Y

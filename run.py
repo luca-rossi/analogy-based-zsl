@@ -3,7 +3,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from args import parse_args
 from modules.data import Data
-from modules.similar_sample_finder import SimilarSampleFinder
+from modules.generator_conditioner import GeneratorConditioner
 from modules.trainer import Trainer
 from modules.trainer_classifier import TrainerClassifier
 
@@ -32,10 +32,10 @@ def train_preclassifier(data, args, device):
 		p.requires_grad = False
 	return preclassifier
 
-def train_model(data, args, preclassifier, similar_sample_finder, device):
+def train_model(data, args, preclassifier, conditioner, device):
 	args.preclassifier = preclassifier
 	args.min_margin = args.dataset == 'AWA2'
-	clswgan = Trainer(data, args.dataset, similar_sample_finder, device=device, **vars(args))
+	clswgan = Trainer(data, args.dataset, conditioner, device=device, **vars(args))
 	clswgan.fit()
 
 def main():
@@ -47,11 +47,11 @@ def main():
 	# Load data
 	data = load_data(args)
 	# Define similar sample finder
-	similar_sample_finder = SimilarSampleFinder(data)
+	conditioner = GeneratorConditioner(data)
 	# Train a preclassifier on seen classes (if needed)
 	preclassifier = train_preclassifier(data, args, device) if args.use_preclassifier else None
 	# Train the model
-	train_model(data, args, preclassifier, similar_sample_finder, device)
+	train_model(data, args, preclassifier, conditioner, device)
 
 if __name__ == "__main__":
 	main()

@@ -69,38 +69,6 @@ class Data:
 		batch_label = self.map_labels(batch_label, self.seen_classes)
 		return batch_feature.to(device), batch_label.to(device), batch_att.to(device)
 
-	def generate_syn_features(self, model_generator, classes, attributes, num_per_class, n_features, n_attributes, latent_size,
-							 model_decoder=None, model_feedback=None, feedback_weight=None,
-							 device: torch.device = torch.device('cpu')) -> Tuple[torch.Tensor, torch.Tensor]:
-		'''
-		Generate synthetic features for each class.
-		'''
-		n_classes = classes.size(0)
-		# Initialize the synthetic dataset tensors
-		syn_X = torch.FloatTensor(n_classes * num_per_class, n_features)
-		syn_Y = torch.LongTensor(n_classes * num_per_class)
-		# Initialize the tensors for the generator input
-		syn_attributes = torch.FloatTensor(num_per_class, n_attributes).to(device)
-		syn_noise = torch.FloatTensor(num_per_class, latent_size).to(device)
-		# Generate synthetic features for each class and update the synthetic dataset
-		for i in range(classes.size(0)):
-			curr_class = classes[i]
-			curr_attributes = attributes[curr_class]
-			# Generate features conditioned on the current class' signature
-			syn_noise.normal_(0, 1)
-			syn_attributes.copy_(curr_attributes.repeat(num_per_class, 1))
-			fake = model_generator(syn_noise, syn_attributes)
-			# Go through the feedback module (only for TF-VAEGAN)
-			if model_feedback is not None:
-				_ = model_decoder(fake)  # Call the forward function of decoder to get the hidden features
-				decoder_features = model_decoder.get_hidden_features()
-				feedback = model_feedback(decoder_features)
-				fake = model_generator(syn_noise, syn_attributes, feedback_weight, feedback=feedback)
-			# Copy the features and labels to the synthetic dataset
-			syn_X.narrow(0, i * num_per_class, num_per_class).copy_(fake.data.cpu())
-			syn_Y.narrow(0, i * num_per_class, num_per_class).fill_(curr_class)
-		return syn_X, syn_Y
-
 	def get_n_classes(self) -> int:
 		return self.attributes.size(0)
 

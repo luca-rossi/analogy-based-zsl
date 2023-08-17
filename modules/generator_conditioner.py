@@ -3,9 +3,10 @@ import random
 import torch
 from typing import List, Tuple
 
-class SimilarSampleFinder:
+class GeneratorConditioner:
 	'''
-	This class finds the most similar class to the current one. There are two parts to this:
+	This class builds the vector used to condition the generator.
+	It finds the most similar class to the current one. There are two parts to this:
 	- Find the most similar seen class to the current one. This is done only once at the beginning.
 	- Sample a feature vector from the most similar seen class. This is done whenever we need to condition the GAN. This needs to be efficient.
 	'''
@@ -27,7 +28,7 @@ class SimilarSampleFinder:
 			# Store the sorted indexes in the similarities matrix
 			self.similarities[i] = sorted_indexes
 
-	def get_samples(self, labels: List[int], n_features: int, noise_size: int, cond_size: int, k: int = 1, agg_type: str = 'concat', pool_type: str = 'mean') -> torch.Tensor:
+	def get_vector(self, labels: List[int], n_features: int, noise_size: int, cond_size: int, k: int = 1, agg_type: str = 'concat', pool_type: str = 'mean') -> torch.Tensor:
 		'''
 		Given a batch of labels, returns a batch of features from the most similar seen classes.
 		'''
@@ -55,7 +56,7 @@ class SimilarSampleFinder:
 		returns a feature vector from the most similar seen class or a fused feature vector from the most similar seen classes.
 		'''
 		# Generate a noise vector
-		noise = torch.randn(noise_size)
+		noise = torch.normal(0, 1, (noise_size,))
 		# Return the noise vector as is if we don't want to condition the GAN
 		if k == 0:
 			return noise
