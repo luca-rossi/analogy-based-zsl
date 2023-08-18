@@ -348,6 +348,7 @@ def parse_args():
 	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
 	parser.add_argument('--n_similar_classes', '-k', type=int, default=0, help='how many similar classes to use for conditional generation')
 	parser.add_argument('--cond_size', '-c', type=int, default=-1, help='size of one sample in the conditioning vector, if -1 use the feature vector size')
+	parser.add_argument('--noise_size', '-z', type=int, default=-1, help='size of the noise vector, if -1 use the attribute vector size')
 	parser.add_argument('--agg_type', '-a', default='concat', help='how to aggregate the similar classes for conditioning (concat or mean)')
 	parser.add_argument('--pool_type', '-l', default='mean', help='how to pool the similar classes for conditioning (mean, max, or first)')
 	parser.add_argument('--use_preclassifier', '-p', action='store_true', help='use a preclassifier like in CLSWGAN')
@@ -396,6 +397,8 @@ def parse_args():
 	args.dataset = clean_dataset_name(args.dataset)
 	if args.cond_size == -1:
 		args.cond_size = args.n_features
+	if args.noise_size == -1:
+		args.noise_size = args.n_attributes
 	# Print the arguments
 	print('Arguments:')
 	for param, value in vars(args).items():
