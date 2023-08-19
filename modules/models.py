@@ -59,9 +59,8 @@ class Generator(nn.Module):
 		self.activation = nn.Sigmoid() if use_sigmoid else nn.ReLU(True)
 		self.apply(init_weights)
 
-	def forward(self, noise: torch.Tensor, att: torch.Tensor, feedback_weight: float = None, feedback: torch.Tensor = None) -> torch.Tensor:
-		h = torch.cat((noise, att), dim=1)
-		h = self.lrelu(self.fc1(h))
+	def forward(self, cond: torch.Tensor, feedback_weight: float = None, feedback: torch.Tensor = None) -> torch.Tensor:
+		h = self.lrelu(self.fc1(cond))
 		if feedback is not None:
 			h = h + feedback_weight * feedback
 		h = self.activation(self.fc2(h))
@@ -112,13 +111,13 @@ class Encoder(nn.Module):
 	VAE encoder network: takes in a feature vector and an attribute vector and outputs a distribution over the latent space.
 	This distribution is used to sample the latent vector for the generator.
 	'''
-	def __init__(self, n_features: int, n_attributes: int, latent_size: int, hidden_size: int = 4096):
+	def __init__(self, n_features: int, n_attributes: int, noise_size: int, hidden_size: int = 4096):
 		super(Encoder, self).__init__()
 		self.fc1 = nn.Linear(n_features + n_attributes, hidden_size)
-		self.fc2 = nn.Linear(hidden_size, latent_size * 2)
+		self.fc2 = nn.Linear(hidden_size, noise_size * 2)
 		self.lrelu = nn.LeakyReLU(0.2, True)
-		self.linear_mean = nn.Linear(latent_size * 2, latent_size)
-		self.linear_log_var = nn.Linear(latent_size * 2, latent_size)
+		self.linear_mean = nn.Linear(noise_size * 2, noise_size)
+		self.linear_log_var = nn.Linear(noise_size * 2, noise_size)
 		self.apply(init_weights)
 
 	def forward(self, x: torch.Tensor, att: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

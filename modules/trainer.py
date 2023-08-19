@@ -81,7 +81,7 @@ class Trainer():
 		if self.use_preclassifier:
 			self.loss_classifier_fn = torch.nn.NLLLoss().to(self.device)
 		if self.use_encoder:
-			self.model_encoder = Encoder(self.n_features, self.n_attributes, self.latent_size, self.hidden_size).to(self.device)
+			self.model_encoder = Encoder(self.n_features, self.n_attributes, self.noise_size, self.hidden_size).to(self.device)
 			self.opt_encoder = torch.optim.Adam(self.model_encoder.parameters(), lr=self.lr)
 			print(self.model_encoder)
 			self.model_decoder = Decoder(self.n_features, self.n_attributes, self.hidden_size, with_fr=self.use_margin).to(self.device)
@@ -345,21 +345,24 @@ class Trainer():
 		Use the generator to synthesize a batch from a latent distribution, which is learned from real features by the decoder.
 		Improve the generated features with the feedback module from the second feedback loop onward.
 		'''
-		means, log_var = None, None
+		means, log_var, noise = None, None, None
 		if self.use_encoder:
 			# Use real features to generate a latent distribution with the encoder
 			means, log_var = self.model_encoder(self.batch_features, self.batch_attributes)
+			std = torch.exp(0.5 * log_var)
+			eps = torch.randn([self.batch_size, self.noise_size]).to(self.device)
+			noise = eps * std + means
 		# Conditional input for the generator
-		gen_input = self.conditioner.get_vector(self.batch_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
+		gen_input = self.conditioner.get_vector(self.batch_labels, self.batch_attributes, self.n_features, self.noise_size, self.cond_size, noise=noise, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
 		# Generate a fake batch with the generator from the latent distribution
-		fake = self.model_generator(gen_input, self.batch_attributes)
+		fake = self.model_generator(gen_input)
 		# From the second feedback loop onward, improve the generated features with the feedback module
 		if self.use_feedback and n_loop >= 1:
 			# Call the forward function of decoder to get the hidden features
 			_ = self.model_decoder(fake)
 			decoder_features = self.model_decoder.get_hidden_features()
 			feedback = self.model_feedback(decoder_features)
-			fake = self.model_generator(gen_input, self.batch_attributes, feedback_weight=self.weight_feed_train, feedback=feedback)
+			fake = self.model_generator(gen_input, feedback_weight=self.weight_feed_train, feedback=feedback)
 		return fake, means, log_var
 
 	def __adjust_weight_gp(self, gradient_penalties):
@@ -439,17 +442,17 @@ class Trainer():
 			curr_class = classes[i]
 			curr_labels = torch.LongTensor(self.features_per_class).fill_(curr_class)
 			curr_attributes = self.data.attributes[curr_class]
-			# Conditional input for the generator
-			gen_input = self.conditioner.get_vector(curr_labels, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
-			# Generate features conditioned on the current class' signature
 			syn_attributes.copy_(curr_attributes.repeat(self.features_per_class, 1))
-			fake = self.model_generator(gen_input, syn_attributes)
+			# Conditional input for the generator
+			gen_input = self.conditioner.get_vector(curr_labels, syn_attributes, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
+			# Generate features conditioned on the current class' signature
+			fake = self.model_generator(gen_input)
 			# Go through the feedback module (only for TF-VAEGAN)
 			if model_feedback is not None:
 				_ = model_decoder(fake)  # Call the forward function of decoder to get the hidden features
 				decoder_features = model_decoder.get_hidden_features()
 				feedback = model_feedback(decoder_features)
-				fake = self.model_generator(gen_input, syn_attributes, self.weight_feed_eval, feedback=feedback)
+				fake = self.model_generator(gen_input, self.weight_feed_eval, feedback=feedback)
 			# Copy the features and labels to the synthetic dataset
 			syn_X.narrow(0, i * self.features_per_class, self.features_per_class).copy_(fake.data.cpu())
 			syn_Y.narrow(0, i * self.features_per_class, self.features_per_class).fill_(curr_class)

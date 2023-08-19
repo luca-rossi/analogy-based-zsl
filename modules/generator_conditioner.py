@@ -28,11 +28,22 @@ class GeneratorConditioner:
 			# Store the sorted indexes in the similarities matrix
 			self.similarities[i] = sorted_indexes
 
-	def get_vector(self, labels: List[int], n_features: int, noise_size: int, cond_size: int, k: int = 1, agg_type: str = 'concat', pool_type: str = 'mean') -> torch.Tensor:
+	def get_vector(self, labels: List[int], attributes: torch.Tensor, n_features: int, noise_size: int, cond_size: int,
+				   noise: torch.Tensor = None, k: int = 0, agg_type: str = 'concat', pool_type: str = 'mean') -> torch.Tensor:
 		'''
 		Given a batch of labels, returns a batch of features from the most similar seen classes.
 		'''
-		return torch.stack([self.__get_sample(label, n_features, noise_size, cond_size, k, agg_type, pool_type) for label in labels])
+		conditioning_vector = torch.Tensor().to(attributes.device)
+		# Stack features from the most similar seen classes
+		if k > 0:
+			conditioning_vector = torch.stack([self.__get_sample(label, n_features, cond_size, k, agg_type, pool_type) for label in labels]).to(attributes.device)
+		# Concatenate attributes to the conditioning vector
+		conditioning_vector = torch.cat((conditioning_vector, attributes), dim=1)
+		# Concatenate noise to the conditioning vector
+		if noise is None:
+			noise = torch.normal(0, 1, (len(labels), noise_size)).to(attributes.device)
+		conditioning_vector = torch.cat((conditioning_vector, noise), dim=1)
+		return conditioning_vector
 
 	def __compute_norms_and_indexes(self, i: int) -> Tuple[List[float], List[int]]:
 		'''
@@ -50,16 +61,12 @@ class GeneratorConditioner:
 			norms.append(comparison_norm)
 		return norms, indexes
 
-	def __get_sample(self, label: int, n_features: int, noise_size: int, cond_size: int, k: int = 1, agg_type: str = 'concat', pool_type: str = 'mean') -> torch.Tensor:
+	def __get_sample(self, label: int, n_features: int, cond_size: int,
+		  			 k: int = 0, agg_type: str = 'concat', pool_type: str = 'mean') -> torch.Tensor:
 		'''
 		Given a label, a number of similar classes to use (default 1), and the type of aggregation (concat or mean) and pooling (mean, max, or first),
 		returns a feature vector from the most similar seen class or a fused feature vector from the most similar seen classes.
 		'''
-		# Generate a noise vector
-		noise = torch.normal(0, 1, (noise_size,))
-		# Return the noise vector as is if we don't want to condition the GAN
-		if k == 0:
-			return noise
 		# Let's make the length of every feature vector equal cond_size
 		pooling_size = n_features // cond_size
 		# Get the k most similar seen classes
@@ -68,8 +75,6 @@ class GeneratorConditioner:
 		feature_vectors = [self.__get_feature_vector(similar_label, pooling_size, pool_type) for similar_label in similar_labels]
 		# Aggregate the feature vectors into a single feature vector
 		feature_vector = self.__aggregate_feature_vectors(feature_vectors, agg_type)
-		# Stack the noise vector on top of the feature vector
-		feature_vector = torch.cat((feature_vector, noise), 0)
 		return feature_vector
 
 	def __get_feature_vector(self, similar_label: int, pooling_size: int, pool_type: str) -> torch.Tensor:
