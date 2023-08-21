@@ -41,7 +41,8 @@ class Trainer():
 		self.beta1_cls = kwargs.get('beta1_cls', 0.5)
 		self.weight_gp = kwargs.get('weight_gp', 10)
 		self.synthesize_all = kwargs.get('synthesize_all', False)
-		self.reg_recons = kwargs.get('reg_recons', 0.0)
+		self.weight_reg_recons = kwargs.get('weight_reg_recons', 0.0)
+		self.weight_reg_generator = kwargs.get('weight_reg_generator', 0.0)
 		self.adjust_weight_gp = kwargs.get('adjust_weight_gp', False)
 		self.save_every = kwargs.get('save_every', 0)
 		self.device = device
@@ -257,7 +258,7 @@ class Trainer():
 		# Train with real batch
 		self.model_decoder.zero_grad()
 		means, recons = self.model_decoder(self.batch_features)
-		loss_decoder = self.weight_recons * loss_reconstruction_fn(recons, self.batch_attributes, reg_recons=self.reg_recons)
+		loss_decoder = self.weight_recons * loss_reconstruction_fn(recons, self.batch_attributes, weight_reg_recons=self.weight_reg_recons)
 		# SAMC loss through means
 		if self.use_margin:
 			center_loss_real = self.center_criterion(means, self.batch_labels, margin=self.center_margin, weight_center=self.weight_center)
@@ -320,7 +321,7 @@ class Trainer():
 		if self.use_encoder:
 			self.model_decoder.zero_grad()
 			_, recons_fake = self.model_decoder(fake)
-			loss_recons = loss_reconstruction_fn(recons_fake, self.batch_attributes, reg_recons=self.reg_recons)
+			loss_recons = loss_reconstruction_fn(recons_fake, self.batch_attributes, weight_reg_recons=self.weight_reg_recons)
 			loss_generator_tot += loss_vae
 			loss_generator_tot += self.weight_recons * loss_recons
 		# Preclassifier loss
@@ -328,6 +329,11 @@ class Trainer():
 			loss_classifier = self.loss_classifier_fn(self.preclassifier.model(fake), self.batch_labels)
 			losses['preclassifier'] = loss_classifier
 			loss_generator_tot += self.weight_precls * loss_classifier
+		# L2 generator regularization
+		if self.weight_reg_generator > 0:
+			l2_loss = self.weight_reg_generator * sum(torch.sum(param ** 2) for param in self.model_generator.parameters())
+			losses['L2'] = l2_loss
+			loss_generator_tot += l2_loss
 		# Total loss
 		loss_generator_tot.backward()
 		self.opt_generator.step()

@@ -359,7 +359,8 @@ def parse_args():
 	parser.add_argument('--synthesize_all', '-y', action='store_true', help='if True, synthesize all classes, otherwise only the unseen classes')
 	parser.add_argument('--vae_beta', type=float, default=1.0, help='the beta parameter for the VAE loss')
 	parser.add_argument('--adjust_weight_gp', action='store_true', help='dynamically adjust the weight of the gradient penalty')
-	parser.add_argument('--reg_recons', type=float, default=0.0, help='recosntruction loss regularizer')
+	parser.add_argument('--weight_reg_recons', type=float, default=0.0, help='reconstruction loss regularizer')
+	parser.add_argument('--weight_reg_generator', type=float, default=0.0, help='generator L2 regularizer')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
 	# Clean values
