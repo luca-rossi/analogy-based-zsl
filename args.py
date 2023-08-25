@@ -343,7 +343,7 @@ def parse_args():
 	parser = argparse.ArgumentParser(add_help=False)
 	parser.add_argument('--model', '-m', default='', help='sets default model parameters (C = CLSWGAN, T = TFVAEGAN, F = FREE)')
 	parser.add_argument('--dataset', '-d', default='AWA2', help='dataset name (folder containing the res101.mat and att_splits.mat files)')
-	parser.add_argument('--dataroot', '-r', default='./data', help='path to dataset')
+	parser.add_argument('--dataroot', '-r', default='../data', help='path to dataset')
 	parser.add_argument('--split', '-s', default='', help='name of the split (e.g. \'_gcs\', \'_mas\', etc.)')
 	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
 	parser.add_argument('--n_similar_classes', '-k', type=int, default=0, help='how many similar classes to use for conditional generation')
@@ -361,6 +361,8 @@ def parse_args():
 	parser.add_argument('--adjust_weight_gp', action='store_true', help='dynamically adjust the weight of the gradient penalty')
 	parser.add_argument('--weight_reg_recons', type=float, default=0.0, help='reconstruction loss regularizer')
 	parser.add_argument('--weight_reg_generator', type=float, default=0.0, help='generator L2 regularizer')
+	parser.add_argument('--binary_attr', action='store_true', help='binarize the attributes')
+	parser.add_argument('--flip_attr', action='store_true', help='if binarized attributes have more 1s than 0s, flip them')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
 	# Clean values

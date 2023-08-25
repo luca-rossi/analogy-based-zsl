@@ -46,7 +46,9 @@ def main():
 	device = init_device()
 	# Load data
 	data = load_data(args)
-	# Define similar sample finder
+	if args.binary_attr:
+		data.binarize_attributes(flip=args.flip_attr)
+	# Define generator conditioner
 	conditioner = GeneratorConditioner(data)
 	# Train a preclassifier on seen classes (if needed)
 	preclassifier = train_preclassifier(data, args, device) if args.use_preclassifier else None

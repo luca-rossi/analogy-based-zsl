@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import scipy.io as sio
 import torch
 from sklearn import preprocessing
@@ -22,6 +23,18 @@ class Data:
 		feature = matcontent['features'].T
 		label = matcontent['labels'].astype(int).squeeze() - 1
 		matcontent = sio.loadmat(self.__get_data_path('att_splits.mat'))
+		# If there is a classes.txt file, load the class names in order
+		try:
+			with open(self.__get_data_path('classes.txt'), 'r') as f:
+				self.class_names = [line.strip() for line in f.readlines()]
+		except FileNotFoundError:
+			self.class_names = None
+		# If there is an attributes.txt file, load the attribute names in order
+		try:
+			with open(self.__get_data_path('attributes.txt'), 'r') as f:
+				self.attribute_names = [line.strip() for line in f.readlines()]
+		except FileNotFoundError:
+			self.attribute_names = None
 		# Load attributes and locations (note: numpy array index starts from 0, mat starts from 1)
 		attributes = torch.from_numpy(matcontent['att'].T).float()
 		train_loc = matcontent['trainval_loc'].squeeze() - 1
@@ -30,6 +43,12 @@ class Data:
 		# Normalize attributes (note: the datasets used here are already normalized, but we do it again just in case)
 		attributes /= attributes.pow(2).sum(1).sqrt().unsqueeze(1).expand(attributes.size(0), attributes.size(1))
 		self.attributes = attributes
+		# Define binary attributes
+		self.attribute_threshold = self.attributes.mean().to(attributes.device)
+		self.binary_attributes = (attributes > self.attribute_threshold).float()
+		# Define flip mask and flipped attributes (value 1 if 1s are more frequent than 0s, and 0 otherwise)
+		self.flip_mask = (self.binary_attributes.sum(0) > self.binary_attributes.size(0) / 2).float()
+		self.flipped_attributes = self.binary_attributes * (1 - self.flip_mask) + (1 - self.binary_attributes) * self.flip_mask
 		# Transform features and labels
 		scaler = preprocessing.MinMaxScaler()
 		self.train_X, self.train_Y = self.__transform_features_and_labels(scaler, feature, label, train_loc, fit=True)
@@ -69,11 +88,50 @@ class Data:
 		batch_label = self.map_labels(batch_label, self.seen_classes)
 		return batch_feature.to(device), batch_label.to(device), batch_att.to(device)
 
+	def binarize_attributes(self, flip: bool = False) -> torch.Tensor:
+		'''
+		Binarize attributes using the given threshold. If no threshold is given, use the median value for each class.
+		'''
+		self.attributes = self.flipped_attributes if flip else self.binary_attributes
+
+	def get_binary_attributes(self, attributes: torch.Tensor, flip: bool = False) -> torch.Tensor:
+		'''
+		Return the binary attributes for the given attributes.
+		'''
+		binary = (attributes > self.attribute_threshold).float()
+		if flip:
+			binary = binary * (1 - self.flip_mask) + (1 - binary) * self.flip_mask
+		return binary
+
 	def get_n_classes(self) -> int:
 		return self.attributes.size(0)
 
 	def get_n_attributes(self) -> int:
 		return self.attributes.size(1)
+
+	def print_class_name(self, i, mapped: bool = False):
+		'''
+		Print class name for the given index, if available. If 'mapped' is True, the index is mapped as if there are only seen classes.
+		'''
+		if self.class_names is not None:
+			if mapped:
+				i = self.seen_classes[i]
+			print(self.class_names[i])
+		else:
+			print('Class name not available')
+
+	def print_attribute_names(self, attributes: torch.Tensor, flip: bool = False):
+		'''
+		Given an attribute vector, print the names next to the values, if available. Also print the binary values.
+		'''
+		attributes = attributes.cpu()
+		binary_attributes = self.get_binary_attributes(attributes, flip)
+		if self.attribute_names is not None:
+			for i, name in enumerate(self.attribute_names):
+				flip_info = ' - Flipped' if flip and self.flip_mask[i].item() else ''
+				print(f'{name}: {attributes[i]:.3f} ({binary_attributes[i].item()}){flip_info}')
+		else:
+			print('Attribute names not available')
 
 	def __get_data_path(self, file: str) -> str:
 		'''
