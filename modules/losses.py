@@ -1,3 +1,4 @@
+from modules.saliency_scorer import SaliencyScorer
 import torch
 import torch.nn as nn
 import torch.autograd as autograd
@@ -28,14 +29,17 @@ def loss_vae_fn(recon_x: torch.Tensor, x: torch.Tensor, mean: torch.Tensor, log_
 	kld = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp()) / x.size(0)
 	return (bce + beta * kld)
 
-def loss_reconstruction_fn(pred: torch.Tensor, gt: torch.Tensor, weight_reg_recons: float = 0.0) -> torch.Tensor:
+def loss_reconstruction_fn(pred: torch.Tensor, gt: torch.Tensor, weight_reg_recons: float = 0.0, saliency_scorer: SaliencyScorer = None) -> torch.Tensor:
 	'''
-	Compute the weighted reconstruction l1 loss.
+	Compute the weighted reconstruction l1 loss between the predicted and ground truth attributes.
 	A regularization term is added to hopefully disentangle the generated features by making them sparse.
 	'''
-	wt = (pred - gt).pow(2)
+	diff = pred - gt
+	if saliency_scorer is not None:
+		diff = saliency_scorer.apply(diff)
+	wt = diff.pow(2)
 	wt /= wt.sum(1).sqrt().unsqueeze(1).expand(wt.size(0), wt.size(1))
-	loss = wt * (pred - gt).abs()
+	loss = wt * diff.abs()
 	reg_loss = weight_reg_recons * pred.abs().sum() / pred.size(0)
 	return loss.sum() / loss.size(0) + reg_loss
 

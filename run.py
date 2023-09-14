@@ -4,6 +4,7 @@ import torch.backends.cudnn as cudnn
 from args import parse_args
 from modules.data import Data
 from modules.generator_conditioner import GeneratorConditioner
+from modules.saliency_scorer import SaliencyScorer
 from modules.trainer import Trainer
 from modules.trainer_classifier import TrainerClassifier
 
@@ -32,10 +33,10 @@ def train_preclassifier(data, args, device):
 		p.requires_grad = False
 	return preclassifier
 
-def train_model(data, args, preclassifier, conditioner, device):
+def train_model(data, args, preclassifier, conditioner, saliency_scorer, device):
 	args.preclassifier = preclassifier
 	args.min_margin = args.dataset == 'AWA2'
-	clswgan = Trainer(data, args.dataset, conditioner, device=device, **vars(args))
+	clswgan = Trainer(data, args.dataset, conditioner, saliency_scorer, device=device, **vars(args))
 	clswgan.fit()
 
 def main():
@@ -46,14 +47,18 @@ def main():
 	device = init_device()
 	# Load data
 	data = load_data(args)
+	# Transform attributes
+	data.scale_attributes(args.weight_attr)
 	if args.binary_attr:
 		data.binarize_attributes(flip=args.flip_attr)
 	# Define generator conditioner
 	conditioner = GeneratorConditioner(data)
+	# Define saliency scorer
+	saliency_scorer = SaliencyScorer(data) if args.use_saliency else None
 	# Train a preclassifier on seen classes (if needed)
 	preclassifier = train_preclassifier(data, args, device) if args.use_preclassifier else None
 	# Train the model
-	train_model(data, args, preclassifier, conditioner, device)
+	train_model(data, args, preclassifier, conditioner, saliency_scorer, device)
 
 if __name__ == "__main__":
 	main()

@@ -88,6 +88,12 @@ class Data:
 		batch_label = self.map_labels(batch_label, self.seen_classes)
 		return batch_feature.to(device), batch_label.to(device), batch_att.to(device)
 
+	def scale_attributes(self, scale: float) -> torch.Tensor:
+		'''
+		Scale attributes by the given scale factor.
+		'''
+		self.attributes *= scale
+
 	def binarize_attributes(self, flip: bool = False) -> torch.Tensor:
 		'''
 		Binarize attributes using the given threshold. If no threshold is given, use the median value for each class.
@@ -132,6 +138,16 @@ class Data:
 				print(f'{name}: {attributes[i]:.3f} ({binary_attributes[i].item()}){flip_info}')
 		else:
 			print('Attribute names not available')
+
+	def print_attributes_info(self):
+		'''
+		For each attribute, print mean and variance across classes, along with the name of that attribute (if available).
+		'''
+		print('Attributes info:')
+		for i, name in enumerate(self.attribute_names or range(self.attributes.size(1))):
+			print(f'\t{name}: \tMean: {self.attributes[:, i].mean():.3f} \tVar: {self.attributes[:, i].var():.3f} \tMin: {self.attributes[:, i].min():.3f} \tMax: {self.attributes[:, i].max():.3f}')
+		print('Overall mean: {:.3f}'.format(self.attributes.mean()))
+		print('Overall variance: {:.3f}'.format(self.attributes.var()))
 
 	def __get_data_path(self, file: str) -> str:
 		'''

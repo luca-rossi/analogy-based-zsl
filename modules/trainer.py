@@ -9,7 +9,7 @@ class Trainer():
 	'''
 	This class implements the training and evaluation of the model.
 	'''
-	def __init__(self, data, dataset_name, conditioner, device: torch.device = torch.device('cpu'), **kwargs):
+	def __init__(self, data, dataset_name, conditioner, saliency_scorer, device: torch.device = torch.device('cpu'), **kwargs):
 		'''
 		Setup models, optimizers, and other parameters.
 		'''
@@ -66,6 +66,7 @@ class Trainer():
 		self.min_margin = kwargs.get('min_margin', False)
 		# Init generator conditioning parameters
 		self.conditioner = conditioner
+		self.saliency_scorer = saliency_scorer
 		self.n_similar_classes = kwargs.get('n_similar_classes', 0)
 		self.agg_type = kwargs.get('agg_type', 'concat')
 		self.pool_type = kwargs.get('pool_type', 'mean')
@@ -258,7 +259,9 @@ class Trainer():
 		# Train with real batch
 		self.model_decoder.zero_grad()
 		means, recons = self.model_decoder(self.batch_features)
-		loss_decoder = self.weight_recons * loss_reconstruction_fn(recons, self.batch_attributes, weight_reg_recons=self.weight_reg_recons)
+		# Saliency weighing
+		saliency_scorer = self.saliency_scorer if self.use_saliency else None
+		loss_decoder = self.weight_recons * loss_reconstruction_fn(recons, self.batch_attributes, weight_reg_recons=self.weight_reg_recons, saliency_scorer=saliency_scorer)
 		# SAMC loss through means
 		if self.use_margin:
 			center_loss_real = self.center_criterion(means, self.batch_labels, margin=self.center_margin, weight_center=self.weight_center)
@@ -321,7 +324,9 @@ class Trainer():
 		if self.use_encoder:
 			self.model_decoder.zero_grad()
 			_, recons_fake = self.model_decoder(fake)
-			loss_recons = loss_reconstruction_fn(recons_fake, self.batch_attributes, weight_reg_recons=self.weight_reg_recons)
+			# Saliency weighing
+			saliency_scorer = self.saliency_scorer if self.use_saliency else None
+			loss_recons = loss_reconstruction_fn(recons_fake, self.batch_attributes, weight_reg_recons=self.weight_reg_recons, saliency_scorer=saliency_scorer)
 			loss_generator_tot += loss_vae
 			loss_generator_tot += self.weight_recons * loss_recons
 		# Preclassifier loss

@@ -343,8 +343,7 @@ def parse_args():
 	parser = argparse.ArgumentParser(add_help=False)
 	parser.add_argument('--model', '-m', default='', help='sets default model parameters (C = CLSWGAN, T = TFVAEGAN, F = FREE)')
 	parser.add_argument('--dataset', '-d', default='AWA2', help='dataset name (folder containing the res101.mat and att_splits.mat files)')
-	parser.add_argument('--dataroot', '-r', default='../data', help='path to dataset')
-	parser.add_argument('--split', '-s', default='', help='name of the split (e.g. \'_gcs\', \'_mas\', etc.)')
+	parser.add_argument('--dataroot', '-r', default='./data', help='path to dataset')
 	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
 	parser.add_argument('--n_similar_classes', '-k', type=int, default=0, help='how many similar classes to use for conditional generation')
 	parser.add_argument('--cond_size', '-c', type=int, default=-1, help='size of one sample in the conditioning vector, if -1 use the feature vector size')
@@ -363,13 +362,14 @@ def parse_args():
 	parser.add_argument('--weight_reg_generator', type=float, default=0.0, help='generator L2 regularizer')
 	parser.add_argument('--binary_attr', action='store_true', help='binarize the attributes')
 	parser.add_argument('--flip_attr', action='store_true', help='if binarized attributes have more 1s than 0s, flip them')
+	parser.add_argument('--weight_attr', type=float, default=1.0, help='how much to scale the attribute vector')
+	parser.add_argument('--use_saliency', action='store_true', help='use saliency scores to weight the attributes')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
 	# Clean values
 	args.model = args.model.lower()
 	args.model = 'CLSWGAN' if args.model == 'c' else 'TFVAEGAN' if args.model == 't' else 'FREE' if args.model == 'f' else args.model
 	args.dataset = clean_dataset_name(args.dataset)
-	args.split = args.split.lower()
 	args.agg_type = args.agg_type.lower()
 	args.pool_type = args.pool_type.lower()
 	# If the model is specified, override parameters
