@@ -73,6 +73,8 @@ class Trainer():
 		self.noise_size = kwargs.get('noise_size', self.n_attributes)
 		self.cond_size = kwargs.get('cond_size', self.n_features)
 		self.latent_size = self.noise_size + (self.cond_size * self.n_similar_classes if self.agg_type == 'concat' else self.cond_size)
+		# Init saliency parameters
+		self.use_saliency = kwargs.get('use_saliency', False)
 		# Init models, losses, and optimizers
 		self.model_generator = Generator(self.n_features, self.n_attributes, self.latent_size, self.hidden_size, use_sigmoid=self.use_encoder).to(self.device)
 		self.opt_generator = torch.optim.Adam(self.model_generator.parameters(), lr=self.lr, betas=(self.beta1, 0.999))
