@@ -363,7 +363,13 @@ def parse_args():
 	parser.add_argument('--binary_attr', action='store_true', help='binarize the attributes')
 	parser.add_argument('--flip_attr', action='store_true', help='if binarized attributes have more 1s than 0s, flip them')
 	parser.add_argument('--weight_attr', type=float, default=1.0, help='how much to scale the attribute vector')
-	parser.add_argument('--use_saliency', action='store_true', help='use saliency scores to weight the attributes')
+	# Saliency scores
+	parser.add_argument('--use_saliency_all', action='store_true', help='apply saliency scores everywhere (upstream)')
+	parser.add_argument('--use_saliency_train', action='store_true', help='apply saliency scores only during training')
+	parser.add_argument('--use_saliency_recloss', action='store_true', help='apply saliency scores to the reconstruction loss')
+	parser.add_argument('--use_saliency_gen', action='store_true', help='apply saliency scores when generating the synthetic dataset')
+	parser.add_argument('--saliency_pow', type=float, default=1.0, help='power to raise the saliency scores to (higher = more emphasis on salient attributes)')
+	parser.add_argument('--flip_saliency', action='store_true', help='if True, the most common attributes (instead of the least common) will be weighted more')
 	# Parse the arguments
 	args, _ = parser.parse_known_args()
 	# Clean values

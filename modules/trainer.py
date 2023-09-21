@@ -66,7 +66,6 @@ class Trainer():
 		self.min_margin = kwargs.get('min_margin', False)
 		# Init generator conditioning parameters
 		self.conditioner = conditioner
-		self.saliency_scorer = saliency_scorer
 		self.n_similar_classes = kwargs.get('n_similar_classes', 0)
 		self.agg_type = kwargs.get('agg_type', 'concat')
 		self.pool_type = kwargs.get('pool_type', 'mean')
@@ -74,7 +73,12 @@ class Trainer():
 		self.cond_size = kwargs.get('cond_size', self.n_features)
 		self.latent_size = self.noise_size + (self.cond_size * self.n_similar_classes if self.agg_type == 'concat' else self.cond_size)
 		# Init saliency parameters
+		self.saliency_scorer = saliency_scorer
 		self.use_saliency = kwargs.get('use_saliency', False)
+		self.use_saliency_all = kwargs.get('use_saliency_all', False)
+		self.use_saliency_train = kwargs.get('use_saliency_train', False)
+		self.use_saliency_recloss = kwargs.get('use_saliency_recloss', False)
+		self.use_saliency_gen = kwargs.get('use_saliency_gen', False)
 		# Init models, losses, and optimizers
 		self.model_generator = Generator(self.n_features, self.n_attributes, self.latent_size, self.hidden_size, use_sigmoid=self.use_encoder).to(self.device)
 		self.opt_generator = torch.optim.Adam(self.model_generator.parameters(), lr=self.lr, betas=(self.beta1, 0.999))
@@ -104,6 +108,9 @@ class Trainer():
 		self.batch_labels = torch.LongTensor(self.batch_size).to(self.device)
 		self.one = torch.tensor(1, dtype=torch.float).to(self.device)
 		self.mone = self.one * -1
+		# Apply saliency scores to attributes
+		if self.use_saliency_all:
+			self.data.attributes = self.saliency_scorer.apply(self.data.attributes)
 
 	def fit(self):
 		'''
@@ -223,9 +230,13 @@ class Trainer():
 				for _ in range(self.n_critic_iters):
 					# Sample a mini-batch
 					self.batch_features, self.batch_labels, self.batch_attributes = self.data.next_batch(self.batch_size, device=self.device)
+					# Apply saliency scores to attributes batch
+					if self.use_saliency_train:
+						self.batch_attributes = self.saliency_scorer.apply(self.batch_attributes)
 					# Train decoder
 					if self.use_encoder:
-						_ = self.__decoder_step()
+						decoder_losses = self.__decoder_step()
+						losses.update(decoder_losses)
 					# Train critic
 					critic_losses, gp = self.__critic_step(n_loop)
 					losses.update(critic_losses)
@@ -261,8 +272,8 @@ class Trainer():
 		# Train with real batch
 		self.model_decoder.zero_grad()
 		means, recons = self.model_decoder(self.batch_features)
-		# Saliency weighing
-		saliency_scorer = self.saliency_scorer if self.use_saliency else None
+		# Apply saliency scores to reconstruction loss
+		saliency_scorer = self.saliency_scorer if self.use_saliency_recloss else None
 		loss_decoder = self.weight_recons * loss_reconstruction_fn(recons, self.batch_attributes, weight_reg_recons=self.weight_reg_recons, saliency_scorer=saliency_scorer)
 		# SAMC loss through means
 		if self.use_margin:
@@ -326,8 +337,8 @@ class Trainer():
 		if self.use_encoder:
 			self.model_decoder.zero_grad()
 			_, recons_fake = self.model_decoder(fake)
-			# Saliency weighing
-			saliency_scorer = self.saliency_scorer if self.use_saliency else None
+			# Apply saliency scores to reconstruction loss
+			saliency_scorer = self.saliency_scorer if self.use_saliency_recloss else None
 			loss_recons = loss_reconstruction_fn(recons_fake, self.batch_attributes, weight_reg_recons=self.weight_reg_recons, saliency_scorer=saliency_scorer)
 			loss_generator_tot += loss_vae
 			loss_generator_tot += self.weight_recons * loss_recons
@@ -456,6 +467,9 @@ class Trainer():
 			curr_labels = torch.LongTensor(self.features_per_class).fill_(curr_class)
 			curr_attributes = self.data.attributes[curr_class]
 			syn_attributes.copy_(curr_attributes.repeat(self.features_per_class, 1))
+			# Apply saliency scores to attributes for the synthetic featuress
+			if self.use_saliency_gen:
+				syn_attributes = self.saliency_scorer.apply(syn_attributes)
 			# Conditional input for the generator
 			gen_input = self.conditioner.get_vector(curr_labels, syn_attributes, self.n_features, self.noise_size, self.cond_size, k=self.n_similar_classes, agg_type=self.agg_type, pool_type=self.pool_type).to(self.device)
 			# Generate features conditioned on the current class' signature

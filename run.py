@@ -54,7 +54,7 @@ def main():
 	# Define generator conditioner
 	conditioner = GeneratorConditioner(data)
 	# Define saliency scorer
-	saliency_scorer = SaliencyScorer(data) if args.use_saliency else None
+	saliency_scorer = SaliencyScorer(data, saliency_pow=args.saliency_pow, flip_saliency=args.flip_saliency)
 	# Train a preclassifier on seen classes (if needed)
 	preclassifier = train_preclassifier(data, args, device) if args.use_preclassifier else None
 	# Train the model
