@@ -2,7 +2,7 @@ import argparse
 
 # Define the default values for each dataset
 defaults = {
-	'CLSWGAN': {
+	'clswgan': {
 		'AWA2': {
 			'seed': 9182,
 			'n_classes': 50,
@@ -80,7 +80,7 @@ defaults = {
 			'weight_precls': 0.01
 		}
 	},
-	'TFVAEGAN': {
+	'tfvaegan': {
 		'AWA2': {
 			'seed': 9182,
 			'n_classes': 50,
@@ -190,7 +190,7 @@ defaults = {
 			'weight_recons': 0.01
 		}
 	},
-	'FREE': {
+	'free': {
 		'AWA2': {
 			'seed': 9182,
 			'n_classes': 50,
@@ -343,7 +343,7 @@ def parse_args():
 	parser = argparse.ArgumentParser(add_help=False)
 	parser.add_argument('--model', '-m', default='', help='sets default model parameters (C = CLSWGAN, T = TFVAEGAN, F = FREE)')
 	parser.add_argument('--dataset', '-d', default='AWA2', help='dataset name (folder containing the res101.mat and att_splits.mat files)')
-	parser.add_argument('--dataroot', '-r', default='./data', help='path to dataset')
+	parser.add_argument('--dataroot', '-r', default='../data', help='path to dataset')
 	parser.add_argument('--save_every', '-e', type=int, default=0, help='save the weights every n epochs (0 to disable)')
 	parser.add_argument('--n_similar_classes', '-k', type=int, default=0, help='how many similar classes to use for conditional generation')
 	parser.add_argument('--cond_size', '-c', type=int, default=-1, help='size of one sample in the conditioning vector, if -1 use the feature vector size')
@@ -374,22 +374,22 @@ def parse_args():
 	args, _ = parser.parse_known_args()
 	# Clean values
 	args.model = args.model.lower()
-	args.model = 'CLSWGAN' if args.model == 'c' else 'TFVAEGAN' if args.model == 't' else 'FREE' if args.model == 'f' else args.model
+	args.model = 'clswgan' if args.model == 'c' else 'tfvaegan' if args.model == 't' else 'free' if args.model == 'f' else args.model
 	args.dataset = clean_dataset_name(args.dataset)
 	args.agg_type = args.agg_type.lower()
 	args.pool_type = args.pool_type.lower()
 	# If the model is specified, override parameters
-	if args.model == 'CLSWGAN':
+	if args.model == 'clswgan':
 		args.use_preclassifier = True
 		args.use_feedback = False
 		args.use_encoder = False
 		args.use_margin = False
-	elif args.model == 'TFVAEGAN':
+	elif args.model == 'tfvaegan':
 		args.use_preclassifier = False
 		args.use_feedback = True
 		args.use_encoder = True
 		args.use_margin = False
-	elif args.model == 'FREE':
+	elif args.model == 'free':
 		args.use_preclassifier = False
 		args.use_feedback = False
 		args.use_encoder = True
